@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 dotenv.config();
 
-let MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/ovs";
+let MONGO_URI = process.env.MONGO_URI;
 if (MONGO_URI.includes("mongodb.net") && !MONGO_URI.match(/mongodb\.net\/[^/?]+/)) {
   MONGO_URI = MONGO_URI.replace(/\/\?/, "/ovs?");
 }

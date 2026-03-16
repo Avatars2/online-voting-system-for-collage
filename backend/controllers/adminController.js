@@ -5,26 +5,27 @@ import Notice from "../models/Notice.js";
 import Election from "../models/Election.js";
 import Candidate from "../models/Candidate.js";
 import User from "../models/User.js";
+import { getMessage, getValidationMessage } from "../utils/messages.js";
 
 // Password validation function (same as frontend and authController)
 function validatePassword(password) {
   if (!password || password.length < 6) {
-    return { isValid: false, error: "Password must be at least 6 characters" };
+    return { isValid: false, error: getMessage('error', 'INVALID_PASSWORD_FORMAT') };
   }
   
   // Check for at least one letter
   if (!/[a-zA-Z]/.test(password)) {
-    return { isValid: false, error: "Password must contain at least one letter" };
+    return { isValid: false, error: getMessage('error', 'INVALID_PASSWORD_FORMAT') };
   }
   
   // Check for at least one number
   if (!/\d/.test(password)) {
-    return { isValid: false, error: "Password must contain at least one number" };
+    return { isValid: false, error: getMessage('error', 'INVALID_PASSWORD_FORMAT') };
   }
   
   // Check for at least one special character
   if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-    return { isValid: false, error: "Password must contain at least one special character" };
+    return { isValid: false, error: getMessage('error', 'INVALID_PASSWORD_FORMAT') };
   }
   
   return { isValid: true };
@@ -34,20 +35,20 @@ export async function registerAdmin(req, res) {
   try {
     const { name, email, password, phone, avatarUrl } = req.body || {};
     if (!name || !email || !password) {
-      return res.status(400).json({ error: "name, email and password are required" });
+      return res.status(400).json({ error: getValidationMessage('email', 'required') });
     }
     const normalizedEmail = String(email).trim().toLowerCase();
 
     // Only allow avatars2610@gmail.com to be admin
     const ADMIN_EMAIL = "avatars2610@gmail.com";
     if (normalizedEmail !== ADMIN_EMAIL) {
-      return res.status(403).json({ error: "Only the designated admin email can be registered as admin" });
+      return res.status(403).json({ error: getMessage('error', 'ACCESS_DENIED') });
     }
 
     // Check if admin already exists
     const existingAdmin = await User.findOne({ email: normalizedEmail });
     if (existingAdmin) {
-      return res.status(409).json({ error: "Admin already exists. Only one admin is allowed." });
+      return res.status(409).json({ error: getMessage('error', 'ADMIN_ALREADY_EXISTS') });
     }
 
     const user = await User.create({
@@ -62,7 +63,7 @@ export async function registerAdmin(req, res) {
     return res.status(201).json({ id: user._id, name: user.name, email: user.email, role: user.role });
   } catch (err) {
     console.error("registerAdmin error:", err);
-    return res.status(500).json({ error: "Server error creating admin" });
+    return res.status(500).json({ error: getMessage('error', 'SERVER_ERROR') });
   }
 }
 
@@ -247,7 +248,7 @@ export async function listDepartments(req, res) {
 export async function createDepartment(req, res) {
   try {
     const { name, hod, hodEmail, hodPassword, hodPhone } = req.body || {};
-    if (!name || !String(name).trim()) return res.status(400).json({ error: "Department name is required" });
+    if (!name || !String(name).trim()) return res.status(400).json({ error: getValidationMessage('name', 'required') });
     
     let hodId = null;
     let createdHod = null;
@@ -257,13 +258,13 @@ export async function createDepartment(req, res) {
       // Validate password
       const passwordValidation = validatePassword(hodPassword);
       if (!passwordValidation.isValid) {
-        return res.status(400).json({ error: `HOD password: ${passwordValidation.error}` });
+        return res.status(400).json({ error: passwordValidation.error });
       }
       
       // Check if HOD with this email already exists
       const existingHod = await User.findOne({ email: hodEmail.toLowerCase().trim() });
       if (existingHod) {
-        return res.status(400).json({ error: "HOD with this email already exists" });
+        return res.status(400).json({ error: getMessage('error', 'USER_ALREADY_EXISTS') });
       }
       
       // Create new HOD user
@@ -281,12 +282,12 @@ export async function createDepartment(req, res) {
     // Option 2: Use existing HOD by ID (only if not creating new HOD)
     else if (hod) {
       if (!mongoose.Types.ObjectId.isValid(hod)) {
-        return res.status(400).json({ error: "Invalid HOD ID format" });
+        return res.status(400).json({ error: getMessage('error', 'INVALID_REQUEST') });
       }
       // Verify HOD exists and has hod role
       const hodUser = await User.findById(hod);
       if (!hodUser || hodUser.role !== 'hod') {
-        return res.status(400).json({ error: "Invalid HOD user" });
+        return res.status(400).json({ error: getMessage('error', 'INVALID_USER_ROLE') });
       }
       hodId = hod;
     }
@@ -318,16 +319,16 @@ export async function createDepartment(req, res) {
       } : null
     });
   } catch (err) {
-    if (err.code === 11000) return res.status(409).json({ error: "Department already exists" });
+    if (err.code === 11000) return res.status(409).json({ error: getMessage('error', 'DEPARTMENT_ALREADY_EXISTS') });
     console.error("createDepartment error:", err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: getMessage('error', 'SERVER_ERROR') });
   }
 }
 
 export async function getDepartment(req, res) {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: "Invalid ID" });
-    const d = await Department.findById(req.params.id);
+    const d = await Department.findById(req.params.id).populate('hod');
     if (!d) return res.status(404).json({ error: "Department not found" });
     res.json(d);
   } catch (err) {
@@ -492,10 +493,17 @@ export async function listNotices(req, res) {
       ];
       console.log("HOD notice filter:", filter);
     }
-    // For Teacher routes, show global notices and their class notices
+    // For Teacher routes, show global notices, department notices, and their class notices
     else if (req.user.role === 'teacher') {
       const classId = req.user.assignedClass;
       console.log("Teacher Notices API - Filtering for class:", classId);
+      
+      // Get teacher's department (from their assigned class)
+      const Class = (await import('../models/Class.js')).default;
+      const teacherClass = await Class.findById(classId).populate('department');
+      const departmentId = teacherClass?.department?._id || teacherClass?.department;
+      
+      console.log("Teacher department:", departmentId);
       
       filter.$or = [
         // Global notices that Teachers can see
@@ -503,6 +511,11 @@ export async function listNotices(req, res) {
         { audience: "student" },
         { audience: "students" },
         { audience: "admins" },
+        // Department-specific notices for their department
+        { 
+          audience: "department_students",
+          targetDepartment: departmentId
+        },
         // Class-specific notices for their class
         { 
           audience: "class_students",
@@ -543,6 +556,7 @@ export async function listNoticesForStudent(req, res) {
   try {
     const student = req.user;
     console.log("Fetching notices for student:", student.email, "department:", student.department, "class:", student.class);
+    console.log("Student full data:", JSON.stringify(student, null, 2));
     
     const filter = {
       $or: [
@@ -563,9 +577,21 @@ export async function listNoticesForStudent(req, res) {
       ]
     };
     
+    console.log("Student notice filter:", JSON.stringify(filter, null, 2));
+    
     // Exclude notices from other departments and classes (unless they are global)
     const items = await Notice.find(filter).sort({ createdAt: -1 });
     console.log(`Found ${items.length} notices for student ${student.email} in department ${student.department}, class ${student.class}`);
+    
+    // Log each notice found
+    items.forEach((notice, index) => {
+      console.log(`Notice ${index + 1}:`, {
+        title: notice.title,
+        audience: notice.audience,
+        targetClass: notice.targetClass,
+        targetDepartment: notice.targetDepartment
+      });
+    });
     
     res.json(items);
   } catch (err) {
@@ -604,6 +630,9 @@ export async function createNotice(req, res) {
     // Add class if user is Teacher and has class access
     else if (req.user.role === 'teacher' && req.user.assignedClass) {
       const classId = req.user.assignedClass;
+      console.log("Teacher creating notice - User ID:", req.user._id, "Assigned Class:", classId);
+      console.log("Teacher user data:", JSON.stringify(req.user, null, 2));
+      
       noticeData = {
         title: String(title).trim(),
         body: body ? String(body).trim() : "",
@@ -613,7 +642,10 @@ export async function createNotice(req, res) {
         targetClass: classId, // Explicitly set target class
         createdBy: req.user._id,
       };
-      console.log("Creating Teacher notice for class:", classId);
+      console.log("Creating Teacher notice for class:", classId, "with data:", noticeData);
+    } else if (req.user.role === 'teacher') {
+      console.log("Teacher without assigned class trying to create notice:", req.user._id);
+      return res.status(403).json({ error: "Teacher must be assigned to a class to create notices" });
     }
     
     const n = await Notice.create(noticeData);
@@ -629,50 +661,41 @@ export async function listElections(req, res) {
   try {
     const filter = {};
     
-    // For HOD routes, show global and department-level elections
+    // According to requirements: each role sees only their specific level elections
     if (req.user.role === 'hod') {
+      // HODs only see department-level elections for their department
       const departmentId = req.user.department || req.user.assignedDepartment;
       console.log("HOD Elections API - Filtering for department:", departmentId);
       
-      filter.$or = [
-        // Global elections
-        { level: "global" },
-        // Department-level elections for their department
-        { 
-          level: "department",
-          department: departmentId
-        }
-      ];
+      filter.level = "department";
+      filter.department = departmentId;
       console.log("HOD election filter:", filter);
     }
-    // For Teacher routes, show global and class-level elections
     else if (req.user.role === 'teacher') {
+      // Teachers only see class-level elections for their class
       const classId = req.user.assignedClass;
       console.log("Teacher Elections API - Filtering for class:", classId);
+      console.log("Teacher user data:", {
+        _id: req.user._id,
+        email: req.user.email,
+        assignedClass: req.user.assignedClass,
+        assignedClassType: typeof req.user.assignedClass
+      });
       
-      filter.$or = [
-        // Global elections
-        { level: "global" },
-        // Class-level elections for their class
-        { 
-          level: "class",
-          class: classId
-        }
-      ];
+      if (classId) {
+        filter.level = "class";
+        filter.class = classId;
+      } else {
+        console.log("Teacher has no assigned class - returning empty filter");
+        filter.level = "class";
+        filter.class = null; // This will return no results
+      }
       console.log("Teacher election filter:", filter);
     }
-    // For admin routes, show all elections
     else if (req.user.role === 'admin') {
-      // No filtering for admin - show all
-      console.log("Admin view - showing all elections");
-    }
-    
-    // Additional query parameter filtering for admin
-    if (req.query.department && req.user.role === 'admin') {
-      filter.department = req.query.department;
-    }
-    if (req.query.class && req.user.role === 'admin') {
-      filter.class = req.query.class;
+      // Admins see all college-level (global) elections only
+      console.log("Admin view - showing college-level elections only");
+      filter.level = "global";
     }
     
     const elections = await Election.find(filter)
@@ -680,10 +703,16 @@ export async function listElections(req, res) {
       .populate("department class");
 
     const items = await Promise.all(
-      elections.map(async (e) => ({
-        ...e.toObject(),
-        candidateCount: await Candidate.countDocuments({ election: e._id }),
-      }))
+      elections.map(async (e) => {
+        const candidates = await Candidate.find({ election: e._id })
+          .populate("student", "name email studentId");
+        
+        return {
+          ...e.toObject(),
+          candidates: candidates,
+          candidateCount: candidates.length,
+        };
+      })
     );
 
     res.json(items);
@@ -702,41 +731,21 @@ export async function createElection(req, res) {
     let deptRef;
     let classRef;
 
-    // Set level and validate based on user role
+    // Set level and validate based on user role according to requirements
     if (req.user.role === 'teacher') {
       // Teachers can only create class-level elections for their assigned class
       normalizedLevel = "class";
       classRef = req.user.assignedClass;
       console.log("Teacher creating class-level election for class:", classRef);
     } else if (req.user.role === 'hod') {
-      // HODs can create department-level elections for their department
-      if (level === "department" || !level) {
-        normalizedLevel = "department";
-        deptRef = req.user.department || req.user.assignedDepartment;
-        console.log("HOD creating department-level election for department:", deptRef);
-      } else if (level === "global") {
-        normalizedLevel = "global";
-        console.log("HOD creating global election");
-      } else {
-        return res.status(403).json({ error: "HODs can only create department-level or global elections" });
-      }
+      // HODs can only create department-level elections for their department
+      normalizedLevel = "department";
+      deptRef = req.user.department || req.user.assignedDepartment;
+      console.log("HOD creating department-level election for department:", deptRef);
     } else if (req.user.role === 'admin') {
-      // Admins can create any level
-      normalizedLevel = ["global", "department", "class"].includes(level) ? level : "global";
-      
-      if (normalizedLevel === "department") {
-        if (!department || !mongoose.Types.ObjectId.isValid(department)) {
-          return res.status(400).json({ error: "Valid department is required for department-level elections" });
-        }
-        deptRef = department;
-      }
-
-      if (normalizedLevel === "class") {
-        if (!classId || !mongoose.Types.ObjectId.isValid(classId)) {
-          return res.status(400).json({ error: "Valid class is required for class-level elections" });
-        }
-        classRef = classId;
-      }
+      // Admins can only create college-level (global) elections
+      normalizedLevel = "global";
+      console.log("Admin creating college-level election");
     }
 
     const e = await Election.create({
@@ -751,6 +760,30 @@ export async function createElection(req, res) {
     res.status(201).json(e);
   } catch (err) {
     console.error("createElection error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+}
+
+export async function updateElection(req, res) {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: "Invalid election ID" });
+
+    const election = await Election.findById(id);
+    if (!election) return res.status(404).json({ error: "Election not found" });
+
+    const { title, description, startDate, endDate } = req.body || {};
+
+    // Update fields if provided
+    if (title !== undefined) election.title = String(title).trim();
+    if (description !== undefined) election.description = description ? String(description).trim() : "";
+    if (startDate !== undefined) election.startDate = startDate ? new Date(startDate) : undefined;
+    if (endDate !== undefined) election.endDate = endDate ? new Date(endDate) : undefined;
+
+    await election.save();
+    res.json(election);
+  } catch (err) {
+    console.error("updateElection error:", err);
     res.status(500).json({ error: "Server error" });
   }
 }
@@ -809,12 +842,80 @@ export async function addCandidate(req, res) {
       name: studentUser.name,
       position: position ? String(position).trim() : "",
     });
+    
     res.status(201).json(candidate);
   } catch (err) {
+    console.error("addCandidate error:", err);
     if (err?.code === 11000) {
       return res.status(409).json({ error: "This student is already registered as a candidate for this election" });
     }
-    console.error("addCandidate error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+}
+
+export async function deleteCandidate(req, res) {
+  try {
+    const { id, candidateId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: "Invalid election ID" });
+    if (!mongoose.Types.ObjectId.isValid(candidateId)) return res.status(400).json({ error: "Invalid candidate ID" });
+
+    const election = await Election.findById(id);
+    if (!election) return res.status(404).json({ error: "Election not found" });
+
+    const candidate = await Candidate.findById(candidateId);
+    if (!candidate) return res.status(404).json({ error: "Candidate not found" });
+
+    // Verify candidate belongs to this election
+    if (candidate.election.toString() !== id) {
+      return res.status(400).json({ error: "Candidate does not belong to this election" });
+    }
+
+    await Candidate.findByIdAndDelete(candidateId);
+    res.json({ message: "Candidate removed successfully" });
+  } catch (err) {
+    console.error("deleteCandidate error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+}
+
+export async function deleteElection(req, res) {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: "Invalid election ID" });
+
+    const election = await Election.findById(id);
+    if (!election) return res.status(404).json({ error: "Election not found" });
+
+    // Check if user has permission to delete this election
+    if (req.user.role === 'teacher') {
+      // Teachers can only delete their own class elections
+      if (!election.class || election.class.toString() !== req.user.assignedClass.toString()) {
+        return res.status(403).json({ error: "You can only delete elections for your assigned class" });
+      }
+    } else if (req.user.role === 'hod') {
+      // HODs can only delete their own department elections
+      if (!election.department || election.department.toString() !== (req.user.department || req.user.assignedDepartment).toString()) {
+        return res.status(403).json({ error: "You can only delete elections for your assigned department" });
+      }
+    }
+    // Admins can delete any election
+
+    // Check if election has already started or has votes
+    if (election.startDate && new Date(election.startDate) <= new Date()) {
+      return res.status(400).json({ error: "Cannot delete election that has already started" });
+    }
+
+    // Check if election has candidates with votes
+    const candidates = await Candidate.find({ election: id });
+    const totalVotes = candidates.reduce((sum, candidate) => sum + candidate.votes, 0);
+    if (totalVotes > 0) {
+      return res.status(400).json({ error: "Cannot delete election that already has votes" });
+    }
+
+    await Election.findByIdAndDelete(id);
+    res.json({ message: "Election deleted successfully" });
+  } catch (err) {
+    console.error("deleteElection error:", err);
     res.status(500).json({ error: "Server error" });
   }
 }
@@ -866,12 +967,86 @@ export async function electionResults(req, res) {
       }
     }
 
+    // Calculate voting statistics
+    let totalVotes = 0;
+    let studentsWhoVoted = 0;
+    let studentsWhoDidNotVote = 0;
+
+    console.log("Calculating voting stats for election:", electionId);
+    console.log("Election level:", election.level);
+
+    if (election.level === "global") {
+      // For global elections, count all students
+      const allStudents = await User.countDocuments({ role: "student" });
+      const studentsWithVotes = await User.countDocuments({ 
+        role: "student", 
+        votedElections: { $in: [new mongoose.Types.ObjectId(electionId)] }
+      });
+      
+      totalVotes = allStudents; // Total eligible students, not just votes received
+      studentsWhoVoted = studentsWithVotes;
+      studentsWhoDidNotVote = allStudents - studentsWithVotes;
+      
+      console.log("Global election stats:", { allStudents, studentsWithVotes, totalVotes });
+    } else if (election.level === "department") {
+      // For department elections, count students in that department
+      const allStudents = await User.countDocuments({ 
+        role: "student", 
+        $or: [
+          { department: election.department._id },
+          { assignedDepartment: election.department._id }
+        ]
+      });
+      const studentsWithVotes = await User.countDocuments({ 
+        role: "student",
+        $or: [
+          { department: election.department._id },
+          { assignedDepartment: election.department._id }
+        ],
+        votedElections: { $in: [new mongoose.Types.ObjectId(electionId)] }
+      });
+      
+      totalVotes = allStudents; // Total eligible students, not just votes received
+      studentsWhoVoted = studentsWithVotes;
+      studentsWhoDidNotVote = allStudents - studentsWithVotes;
+      
+      console.log("Department election stats:", { allStudents, studentsWithVotes, totalVotes, deptId: election.department._id });
+    } else if (election.level === "class") {
+      // For class elections, count students in that class
+      const allStudents = await User.countDocuments({ 
+        role: "student", 
+        $or: [
+          { class: election.class._id },
+          { assignedClass: election.class._id }
+        ]
+      });
+      const studentsWithVotes = await User.countDocuments({ 
+        role: "student",
+        $or: [
+          { class: election.class._id },
+          { assignedClass: election.class._id }
+        ],
+        votedElections: { $in: [new mongoose.Types.ObjectId(electionId)] }
+      });
+      
+      totalVotes = allStudents; // Total eligible students, not just votes received
+      studentsWhoVoted = studentsWithVotes;
+      studentsWhoDidNotVote = allStudents - studentsWithVotes;
+      
+      console.log("Class election stats:", { allStudents, studentsWithVotes, totalVotes, classId: election.class._id });
+    }
+
     res.json({ 
       election, 
       candidates, 
       winner, 
       isDraw, 
       tiedCandidates,
+      votingStats: {
+        totalVotes,
+        studentsWhoVoted,
+        studentsWhoDidNotVote
+      },
       message: isDraw ? "Election resulted in a draw - no winner declared" : winner ? "Winner declared" : "No votes cast"
     });
   } catch (err) {
@@ -900,6 +1075,104 @@ export async function getDashboardStats(req, res) {
   } catch (err) {
     console.error("getDashboardStats error:", err);
     res.status(500).json({ error: "Server error" });
+  }
+}
+
+export async function updateDepartment(req, res) {
+  try {
+    const { id } = req.params;
+    const { name, hodEmail, hodPassword, hodPhone, hodName, removeHod } = req.body || {};
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid department ID" });
+    }
+
+    // Check if department exists
+    const department = await Department.findById(id);
+    if (!department) {
+      return res.status(404).json({ error: "Department not found" });
+    }
+
+    let hodId = department.hod; // Keep existing HOD by default
+    let createdHod = null;
+
+    // Update department name if provided
+    if (name && String(name).trim()) {
+      department.name = String(name).trim();
+    }
+
+    // Handle HOD removal
+    if (removeHod === true && department.hod) {
+      // Remove HOD reference from department
+      await User.updateMany(
+        { _id: department.hod },
+        { $unset: { department: 1, assignedDepartment: 1 } }
+      );
+      hodId = null;
+      console.log("Removed HOD from department");
+    }
+    // Handle HOD updates/registration
+    else if (hodEmail && hodPassword) {
+      // Create new HOD with email/password
+      const passwordValidation = validatePassword(hodPassword);
+      if (!passwordValidation.isValid) {
+        return res.status(400).json({ error: `HOD password: ${passwordValidation.error}` });
+      }
+      
+      // Check if HOD with this email already exists
+      const existingHod = await User.findOne({ email: hodEmail.toLowerCase().trim() });
+      if (existingHod) {
+        return res.status(400).json({ error: "HOD with this email already exists" });
+      }
+      
+      // Create new HOD user
+      createdHod = new User({
+        name: hodName || `HOD of ${department.name}`,
+        email: hodEmail.toLowerCase().trim(),
+        password: hodPassword,
+        phone: hodPhone || '',
+        role: 'hod',
+        department: department._id,
+        assignedDepartment: department._id
+      });
+      
+      await createdHod.save();
+      hodId = createdHod._id;
+      
+      // Update old HOD to remove department references
+      if (department.hod) {
+        await User.updateMany(
+          { _id: department.hod },
+          { $unset: { department: 1, assignedDepartment: 1 } }
+        );
+      }
+    } else if (hodEmail && !hodPassword) {
+      return res.status(400).json({ error: "HOD password is required when updating HOD email" });
+    }
+
+    // Update department HOD reference
+    department.hod = hodId;
+    await department.save();
+
+    // Populate and return response
+    const populatedDepartment = await Department.findById(department._id)
+      .populate('hod', 'name email');
+    
+    res.json({
+      department: populatedDepartment,
+      hod: createdHod ? {
+        id: createdHod._id,
+        name: createdHod.name,
+        email: createdHod.email,
+        role: createdHod.role
+      } : null
+    });
+  } catch (err) {
+    console.error("updateDepartment error:", err);
+    if (err.code === 11000) {
+      return res.status(409).json({ error: "Department name already exists" });
+    }
+    res.status(500).json({ error: "Server error updating department" });
   }
 }
 
@@ -944,12 +1217,19 @@ export async function deleteDepartment(req, res) {
     );
     console.log("Updated remaining students to remove department reference");
 
-    // Update HOD to remove department reference
-    await User.updateMany(
-      { $or: [{ department: id }, { assignedDepartment: id }] },
-      { $unset: { department: 1, assignedDepartment: 1 } }
-    );
-    console.log("Updated HODs to remove department reference");
+    // Find and delete all teachers assigned to this department
+    const deletedTeachers = await User.deleteMany({ 
+      role: "teacher",
+      $or: [{ department: id }, { assignedDepartment: id }]
+    });
+    console.log(`Deleted ${deletedTeachers.deletedCount} teachers in department`);
+
+    // Find and delete the HOD assigned to this department
+    const deletedHod = await User.deleteMany({ 
+      role: "hod",
+      $or: [{ department: id }, { assignedDepartment: id }]
+    });
+    console.log(`Deleted ${deletedHod.deletedCount} HODs in department`);
 
     // Delete the department
     await Department.findByIdAndDelete(id);
@@ -958,11 +1238,117 @@ export async function deleteDepartment(req, res) {
     res.json({ 
       message: "Department deleted successfully",
       deletedClasses: deletedClasses.deletedCount,
-      deletedStudents: deletedStudents.deletedCount
+      deletedStudents: deletedStudents.deletedCount,
+      deletedTeachers: deletedTeachers.deletedCount,
+      deletedHod: deletedHod.deletedCount
     });
   } catch (err) {
     console.error("deleteDepartment error:", err);
     res.status(500).json({ error: "Server error" });
+  }
+}
+
+export async function updateClass(req, res) {
+  try {
+    const { id } = req.params;
+    const { name, year, teacherEmail, teacherPassword, teacherPhone, teacherName, removeTeacher } = req.body || {};
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid class ID" });
+    }
+
+    // Check if class exists
+    const classObj = await ClassModel.findById(id).populate('department');
+    if (!classObj) {
+      return res.status(404).json({ error: "Class not found" });
+    }
+
+    let teacherId = classObj.classTeacher; // Keep existing teacher by default
+    let createdTeacher = null;
+
+    // Update class name if provided
+    if (name && String(name).trim()) {
+      classObj.name = String(name).trim();
+    }
+
+    // Update year if provided
+    if (year !== undefined) {
+      classObj.year = year ? String(year).trim() : undefined;
+    }
+
+    // Handle teacher removal
+    if (removeTeacher === true && classObj.classTeacher) {
+      // Remove teacher reference from class
+      await User.updateMany(
+        { _id: classObj.classTeacher },
+        { $unset: { assignedClass: 1 } }
+      );
+      teacherId = null;
+      console.log("Removed teacher from class");
+    }
+    // Handle teacher updates/registration
+    else if (teacherEmail && teacherPassword) {
+      // Create new teacher with email/password
+      const passwordValidation = validatePassword(teacherPassword);
+      if (!passwordValidation.isValid) {
+        return res.status(400).json({ error: `Teacher password: ${passwordValidation.error}` });
+      }
+      
+      // Check if teacher with this email already exists
+      const existingTeacher = await User.findOne({ email: teacherEmail.toLowerCase().trim() });
+      if (existingTeacher) {
+        return res.status(400).json({ error: "Teacher with this email already exists" });
+      }
+      
+      // Create new teacher user
+      createdTeacher = new User({
+        name: teacherName || `Teacher of ${classObj.name}`,
+        email: teacherEmail.toLowerCase().trim(),
+        password: teacherPassword,
+        phone: teacherPhone || '',
+        role: 'teacher',
+        assignedClass: classObj._id,
+        assignedDepartment: classObj.department._id
+      });
+      
+      await createdTeacher.save();
+      teacherId = createdTeacher._id;
+      
+      // Update old teacher to remove class reference
+      if (classObj.classTeacher) {
+        await User.updateMany(
+          { _id: classObj.classTeacher },
+          { $unset: { assignedClass: 1 } }
+        );
+      }
+    } else if (teacherEmail && !teacherPassword) {
+      return res.status(400).json({ error: "Teacher password is required when updating teacher email" });
+    }
+
+    // Update class teacher reference
+    classObj.classTeacher = teacherId;
+    await classObj.save();
+
+    // Populate and return response
+    const populatedClass = await ClassModel.findById(classObj._id)
+      .populate('department', 'name')
+      .populate('classTeacher', 'name email');
+    
+    res.json({
+      class: populatedClass,
+      teacher: createdTeacher ? {
+        id: createdTeacher._id,
+        name: createdTeacher.name,
+        email: createdTeacher.email,
+        role: createdTeacher.role
+      } : null
+    });
+  } catch (err) {
+    console.error("updateClass error:", err);
+    if (err.code === 11000) {
+      return res.status(409).json({ error: "Class name already exists in this department" });
+    }
+    res.status(500).json({ error: "Server error updating class" });
   }
 }
 
@@ -991,12 +1377,12 @@ export async function deleteClass(req, res) {
     // Remove these students from any candidates
     await Candidate.deleteMany({ student: { $in: deletedStudents.deletedCount > 0 ? id : [] } });
 
-    // Update teachers to remove class reference
-    await User.updateMany(
-      { assignedClass: id },
-      { $unset: { assignedClass: 1 } }
-    );
-    console.log("Updated teachers to remove class reference");
+    // Find and delete the teacher assigned to this class
+    const deletedTeacher = await User.deleteMany({ 
+      role: "teacher",
+      assignedClass: id
+    });
+    console.log(`Deleted ${deletedTeacher.deletedCount} teachers in class`);
 
     // Delete the class
     await ClassModel.findByIdAndDelete(id);
@@ -1004,7 +1390,8 @@ export async function deleteClass(req, res) {
 
     res.json({ 
       message: "Class deleted successfully",
-      deletedStudents: deletedStudents.deletedCount
+      deletedStudents: deletedStudents.deletedCount,
+      deletedTeacher: deletedTeacher.deletedCount
     });
   } catch (err) {
     console.error("deleteClass error:", err);

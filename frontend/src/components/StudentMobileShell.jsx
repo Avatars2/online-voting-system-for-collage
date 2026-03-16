@@ -39,7 +39,15 @@ export default function StudentMobileShell({
               <div className="flex items-center gap-3">
                 {backTo ? (
                   <button
-                    onClick={() => navigate(backTo)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      console.log("Student back button clicked, navigating to:", backTo);
+                      try {
+                        navigate(backTo);
+                      } catch (error) {
+                        console.error("Navigation error:", error);
+                      }
+                    }}
                     className="text-white/95 font-semibold"
                     aria-label="Back"
                   >

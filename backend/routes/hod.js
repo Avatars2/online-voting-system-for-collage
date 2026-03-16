@@ -66,6 +66,7 @@ router.get('/classes/available', departmentAccess, (req, res, next) => {
   req.query.department = req.user.assignedDepartment;
   next();
 }, adminCtrl.listAvailableClasses);
+router.put('/classes/:id', departmentAccess, adminCtrl.updateClass);
 router.delete('/classes/:id', departmentAccess, adminCtrl.deleteClass);
 
 // Teacher management (HOD can register teachers for their department)
@@ -75,13 +76,15 @@ router.get('/teachers', getAllTeachers);
 // Student Management (HOD can register students for their department)
 router.post('/register-student', departmentAccess, registerStudent);
 router.get('/students', getStudents);
+router.delete('/students/:id', departmentAccess, adminCtrl.deleteStudent);
 
 // Notice Management (HOD can create notices for their department and see global notices)
 router.post('/notices', departmentAccess, adminCtrl.createNotice);
 router.get('/notices', departmentAccess, adminCtrl.listNotices);
 
-// Election Management (HOD can create elections for their department/classes)
+// Election Management (HOD can create elections for their department)
 router.post('/elections', departmentAccess, adminCtrl.createElection);
+router.put('/elections/:id', departmentAccess, adminCtrl.updateElection);
 router.get('/elections', departmentAccess, (req, res, next) => {
   // Automatically filter by HOD's department - try both department fields
   const departmentId = req.user.department || req.user.assignedDepartment;
@@ -96,7 +99,9 @@ router.get('/elections', departmentAccess, (req, res, next) => {
   }
   next();
 }, adminCtrl.listElections);
+router.delete('/elections/:id', departmentAccess, adminCtrl.deleteElection);
 router.post('/elections/:id/candidates', departmentAccess, adminCtrl.addCandidate);
+router.delete('/elections/:id/candidates/:candidateId', departmentAccess, adminCtrl.deleteCandidate);
 
 // Results (HOD can view results for their department elections)
 router.get('/results/:electionId', departmentAccess, adminCtrl.electionResults);

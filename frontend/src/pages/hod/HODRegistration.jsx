@@ -12,6 +12,7 @@ export default function HODRegistration() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [emailValidation, setEmailValidation] = useState({ isValid: false, message: "" });
   
   const [formData, setFormData] = useState({
     name: "",
@@ -49,6 +50,43 @@ export default function HODRegistration() {
     fetchDepartments();
   }, []);
 
+  // Email validation handler
+  const handleEmailValidation = async (email) => {
+    if (!email.trim()) {
+      setEmailValidation({ isValid: false, message: "" });
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/validate/email-quick', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: email.trim() })
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        setEmailValidation({
+          isValid: result.isValid,
+          message: result.message || ""
+        });
+      } else {
+        setEmailValidation({ isValid: false, message: "Validation failed" });
+      }
+    } catch (error) {
+      // Fallback to basic validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const isValid = emailRegex.test(email.trim());
+      setEmailValidation({
+        isValid,
+        message: isValid ? "" : "Please enter a valid email address"
+      });
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -67,6 +105,15 @@ export default function HODRegistration() {
     const passwordValidation = validatePassword(formData.password);
     if (!passwordValidation.isValid) {
       setError(passwordValidation.errors[0]);
+      return;
+    }
+    
+    // Validate phone (optional but if provided, must be valid)
+    if (formData.phone.trim() && !/^[+]?[\d\s\-\(\)]+$/.test(formData.phone.trim())) {
+      setError("Please enter a valid phone number");
+      return;
+    } else if (formData.phone.trim() && formData.phone.replace(/\D/g, '').length < 10) {
+      setError("Phone number must have at least 10 digits");
       return;
     }
     
@@ -125,6 +172,11 @@ export default function HODRegistration() {
       ...prev,
       [name]: value
     }));
+    
+    // Trigger email validation for email field
+    if (name === 'email') {
+      handleEmailValidation(value);
+    }
   };
 
   return (
@@ -171,11 +223,28 @@ export default function HODRegistration() {
               name="email"
               value={formData.email}
               onChange={handleInputChange}
-              className="input-base"
+              className={`input-base ${
+                error ? 'border-red-500' : 
+                formData.email && emailValidation.isValid ? 'border-green-500' : 
+                formData.email ? 'border-red-500' : ''
+              }`}
               placeholder="Enter your email"
               disabled={loading}
               required
             />
+            {error && error.includes("Email") && (
+              <p className="text-xs text-red-600 mt-1">{error}</p>
+            )}
+            {formData.email && !error && emailValidation.message && (
+              <p className={`text-xs mt-1 ${
+                emailValidation.isValid ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {emailValidation.message}
+              </p>
+            )}
+            {formData.email && !error && emailValidation.isValid && (
+              <p className="text-xs text-green-600 mt-1">✓ Valid email address</p>
+            )}
           </div>
 
           <div>
@@ -187,10 +256,19 @@ export default function HODRegistration() {
               name="phone"
               value={formData.phone}
               onChange={handleInputChange}
-              className="input-base"
+              className={`input-base ${
+                error && error.includes("phone") ? 'border-red-500' : 
+                formData.phone && !error.includes("phone") ? 'border-green-500' : ''
+              }`}
               placeholder="Enter your phone number (optional)"
               disabled={loading}
             />
+            {error && error.includes("phone") && (
+              <p className="text-xs text-red-600 mt-1">{error}</p>
+            )}
+            {formData.phone && !error && !error.includes("phone") && (
+              <p className="text-xs text-green-600 mt-1">✓ Valid phone number</p>
+            )}
           </div>
 
           <div>

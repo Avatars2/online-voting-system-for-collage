@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { authAPI } from "../services/api";
-import { isValidEmail, validatePassword, sanitizeInput } from "../utils/validation";
-import { ButtonSkeleton, FormSkeleton } from "../components/LoadingSkeleton";
-import EnhancedInput from "../components/UI/EnhancedInput";
-import EnhancedButton from "../components/UI/EnhancedButton";
-import { useToast } from "../components/UI/Toast";
+import { authAPI } from "../../services/api";
+import { ButtonSkeleton, FormSkeleton } from "../../components/LoadingSkeleton";
+import EnhancedInput from "../../components/UI/EnhancedInput";
+import EnhancedButton from "../../components/UI/EnhancedButton";
+import { useToast } from "../../components/UI/Toast";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -14,10 +13,16 @@ export default function Login() {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [touched, setTouched] = useState({});
+  
+  // Forgot password states
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    const sanitizedValue = sanitizeInput(value);
+    // Simple sanitization - trim whitespace
+    const sanitizedValue = value.trim();
     setFormData({ ...formData, [name]: sanitizedValue });
     
     // Clear error for this field when user starts typing
@@ -39,7 +44,7 @@ export default function Login() {
       case 'email':
         if (!value) {
           newErrors.email = 'Email is required';
-        } else if (!isValidEmail(value)) {
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
           newErrors.email = 'Please enter a valid email address';
         } else {
           delete newErrors.email;
@@ -47,9 +52,12 @@ export default function Login() {
         break;
         
       case 'password':
-        const passwordValidation = validatePassword(value);
-        if (!passwordValidation.isValid) {
-          newErrors.password = passwordValidation.errors[0];
+        if (!value) {
+          newErrors.password = 'Password is required';
+        } else if (value.length < 6) {
+          newErrors.password = 'Password must be at least 6 characters';
+        } else if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(value)) {
+          newErrors.password = 'Password must contain both letters and numbers';
         } else {
           delete newErrors.password;
         }
@@ -67,13 +75,21 @@ export default function Login() {
     
     // Validate all fields
     const emailError = !formData.email ? 'Email is required' : 
-                      !isValidEmail(formData.email) ? 'Please enter a valid email address' : null;
-    const passwordValidation = validatePassword(formData.password);
+                      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email) ? 'Please enter a valid email address' : null;
     
-    if (emailError || !passwordValidation.isValid) {
+    let passwordError = null;
+    if (!formData.password) {
+      passwordError = 'Password is required';
+    } else if (formData.password.length < 6) {
+      passwordError = 'Password must be at least 6 characters';
+    } else if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(formData.password)) {
+      passwordError = 'Password must contain both letters and numbers';
+    }
+    
+    if (emailError || passwordError) {
       setErrors({
         email: emailError,
-        password: passwordValidation.errors[0]
+        password: passwordError
       });
       return;
     }
@@ -109,11 +125,38 @@ export default function Login() {
   };
 
   const isFormValid = () => {
-    return formData.email && 
-           formData.password && 
-           isValidEmail(formData.email) && 
-           validatePassword(formData.password).isValid &&
-           !loading;
+    const emailValid = formData.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
+    const passwordValid = formData.password && 
+                       formData.password.length >= 6 && 
+                       /(?=.*[a-zA-Z])(?=.*\d)/.test(formData.password);
+    
+    return emailValid && passwordValid && !loading;
+  };
+
+  // Handle forgot password
+  const handleForgotPassword = async () => {
+    if (!resetEmail) {
+      showError('Please enter your email address');
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resetEmail)) {
+      showError('Please enter a valid email address');
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      await authAPI.forgotPassword(resetEmail.trim().toLowerCase());
+      success('Password reset link sent to your email');
+      setShowForgotPassword(false);
+      setResetEmail('');
+    } catch (err) {
+      console.error('Forgot password error:', err);
+      showError(err.response?.data?.error || 'Failed to send reset email');
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   if (loading && !formData.email && !formData.password) {
@@ -183,20 +226,64 @@ export default function Login() {
 
           {/* Footer */}
           <div className="mt-8 pt-6 border-t border-gray-200">
-            <div className="text-center space-y-2">
-              <div className="flex justify-center space-x-4 text-xs">
-                <a href="#" className="text-blue-600 hover:text-blue-700 transition-colors">
-                  Forgot Password?
-                </a>
-                <span className="text-gray-400">•</span>
-                <a href="#" className="text-blue-600 hover:text-blue-700 transition-colors">
-                  Need Help?
-                </a>
-              </div>
+            <div className="text-center">
+              <a 
+                href="#" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowForgotPassword(true);
+                }}
+                className="text-blue-600 hover:text-blue-700 transition-colors text-xs"
+              >
+                Forgot Password?
+              </a>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotPassword && (
+        <div className="fixed inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-blue-600 bg-opacity-95 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md border-2 border-gray-200 shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Reset Password</h3>
+              <button
+                onClick={() => setShowForgotPassword(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <EnhancedInput
+                label="Email Address"
+                name="resetEmail"
+                type="email"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                placeholder="Enter your registered email"
+                disabled={resetLoading}
+                required
+                icon="📧"
+                helperText="We'll send you a password reset link"
+              />
+
+              <EnhancedButton
+                onClick={handleForgotPassword}
+                disabled={!resetEmail || resetLoading}
+                loading={resetLoading}
+                fullWidth
+                size="lg"
+                icon="📧"
+              >
+                {resetLoading ? 'Sending...' : 'Send Reset Link'}
+              </EnhancedButton>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

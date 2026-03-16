@@ -16,6 +16,7 @@ export default function ClassPage() {
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [emailValidation, setEmailValidation] = useState({ isValid: false, message: "" });
 
   const fetchData = useCallback(async () => {
     try {
@@ -40,6 +41,49 @@ export default function ClassPage() {
     fetchData();
   }, [fetchData]);
 
+  // Email validation handler
+  const handleEmailValidation = async (email) => {
+    if (!email.trim()) {
+      setEmailValidation({ isValid: false, message: "" });
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/validate/email-quick', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: email.trim() })
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        setEmailValidation({
+          isValid: result.isValid,
+          message: result.message || ""
+        });
+      } else {
+        setEmailValidation({ isValid: false, message: "Validation failed" });
+      }
+    } catch (error) {
+      // Fallback to basic validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const isValid = emailRegex.test(email.trim());
+      setEmailValidation({
+        isValid,
+        message: isValid ? "" : "Please enter a valid email address"
+      });
+    }
+  };
+
+  const handleTeacherEmailChange = (e) => {
+    const email = e.target.value;
+    setTeacherEmail(email);
+    handleEmailValidation(email);
+  };
+
   const handleAdd = async () => {
     if (!className.trim()) {
       setError("Class name is required");
@@ -55,8 +99,15 @@ export default function ClassPage() {
         setError("Teacher email and password are required when registering teacher");
         return;
       }
-      if (!teacherEmail.includes("@")) {
-        setError("Please enter a valid email address");
+      if (!emailValidation.isValid) {
+        setError("Please enter a valid teacher email address");
+        return;
+      }
+      if (teacherPhone.trim() && !/^[+]?[\d\s\-\(\)]+$/.test(teacherPhone.trim())) {
+        setError("Please enter a valid teacher phone number");
+        return;
+      } else if (teacherPhone.trim() && teacherPhone.replace(/\D/g, '').length < 10) {
+        setError("Teacher phone number must have at least 10 digits");
         return;
       }
     }
@@ -169,10 +220,27 @@ export default function ClassPage() {
                 type="email"
                 placeholder="Teacher Email (required)"
                 value={teacherEmail}
-                onChange={(e) => setTeacherEmail(e.target.value)}
-                className="input-base"
+                onChange={handleTeacherEmailChange}
+                className={`input-base ${
+                  error && error.includes("email") ? 'border-red-500' : 
+                  teacherEmail && emailValidation.isValid ? 'border-green-500' : 
+                  teacherEmail ? 'border-red-500' : ''
+                }`}
                 disabled={loading}
               />
+              {teacherEmail && error && error.includes("email") && (
+                <p className="text-xs text-red-600 mt-1">{error}</p>
+              )}
+              {teacherEmail && !error && emailValidation.message && (
+                <p className={`text-xs mt-1 ${
+                  emailValidation.isValid ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {emailValidation.message}
+                </p>
+              )}
+              {teacherEmail && !error && emailValidation.isValid && (
+                <p className="text-xs text-green-600 mt-1">✓ Valid email address</p>
+              )}
               <input
                 type="password"
                 placeholder="Teacher Password (required)"
@@ -186,9 +254,18 @@ export default function ClassPage() {
                 placeholder="Teacher Phone (optional)"
                 value={teacherPhone}
                 onChange={(e) => setTeacherPhone(e.target.value)}
-                className="input-base"
+                className={`input-base ${
+                  error && error.includes("phone") ? 'border-red-500' : 
+                  teacherPhone && !error.includes("phone") ? 'border-green-500' : ''
+                }`}
                 disabled={loading}
               />
+              {teacherPhone && error && error.includes("phone") && (
+                <p className="text-xs text-red-600 mt-1">{error}</p>
+              )}
+              {teacherPhone && !error && !error.includes("phone") && (
+                <p className="text-xs text-green-600 mt-1">✓ Valid phone number</p>
+              )}
             </>
           )}
           

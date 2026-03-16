@@ -7,7 +7,6 @@ const ADMIN_MENU = [
   { label: "Reset Password", path: "/admin/reset-password", icon: "🔒" },
   { label: "Notice", path: "/admin/notices", icon: "🔔" },
   { label: "Department", path: "/admin/departments", icon: "🏢" },
-  { label: "Classes", path: "/admin/classes", icon: "📚" },
   { label: "Election", path: "/admin/elections", icon: "🗳️" },
   { label: "Result", path: "/admin/results", icon: "📊" },
 ];
@@ -26,7 +25,8 @@ const TEACHER_MENU = [
   { label: "Profile", path: "/teacher/profile", icon: "👤" },
   { label: "Reset Password", path: "/teacher/reset-password", icon: "🔒" },
   { label: "Students", path: "/teacher/students", icon: "👥" },
-  { label: "Reports", path: "/teacher/reports", icon: "📊" },
+  { label: "Elections", path: "/teacher/elections", icon: "🗳️" },
+  { label: "Results", path: "/teacher/results", icon: "📊" },
   { label: "Notices", path: "/teacher/notices", icon: "🔔" },
 ];
 
@@ -90,7 +90,15 @@ export default function AdminMobileShell({
               <div className="flex items-center gap-3">
                 {backTo ? (
                   <button
-                    onClick={() => navigate(backTo)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      console.log("Back button clicked, navigating to:", backTo);
+                      try {
+                        navigate(backTo);
+                      } catch (error) {
+                        console.error("Navigation error:", error);
+                      }
+                    }}
                     className="text-white/95 font-semibold"
                     aria-label="Back"
                   >

@@ -1,9 +1,12 @@
 import express from 'express';
-import { protect, authorize, classAccess } from '../middleware/roleAuth.js';
+import { protect, authorize, classAccess, studentAccess } from '../middleware/roleAuth.js';
 import {
   getTeacherDashboard,
   registerStudent,
-  getStudents
+  getStudents,
+  deleteStudent,
+  addCandidate,
+  deleteCandidate
 } from '../controllers/hodTeacherController.js';
 import * as adminCtrl from '../controllers/adminController.js';
 import { verifyToken, updateMe, changePassword } from '../controllers/authController.js';
@@ -35,9 +38,25 @@ router.get('/profile', verifyToken);
 router.put('/profile', updateMe);
 router.put('/change-password', changePassword);
 
+// Teacher profile with populated class data
+router.get('/me', async (req, res) => {
+  try {
+    const User = (await import('../models/User.js')).default;
+    const teacher = await User.findById(req.user._id).populate('assignedClass');
+    res.json(teacher);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Class Management (Teacher can access their assigned class)
+router.get('/classes/:id', classAccess, adminCtrl.getClass);
+
 // Student Management (Teacher can register students for their class)
 router.post('/register-student', classAccess, registerStudent);
-router.get('/students', getStudents);
+router.get('/students', classAccess, getStudents);
+router.put('/students/:id', studentAccess, adminCtrl.updateStudent);
+router.delete('/students/:id', studentAccess, deleteStudent);
 
 // Notice Management (Teacher can create notices for their class)
 router.get('/notices', adminCtrl.listNotices);
@@ -46,7 +65,10 @@ router.post('/notices', adminCtrl.createNotice);
 // Election Management (Teacher can create elections for their class)
 router.get('/elections', adminCtrl.listElections);
 router.post('/elections', adminCtrl.createElection);
-router.post('/elections/:id/candidates', classAccess, adminCtrl.addCandidate);
+router.put('/elections/:id', classAccess, adminCtrl.updateElection);
+router.delete('/elections/:id', classAccess, adminCtrl.deleteElection);
+router.post('/elections/:id/candidates', addCandidate);
+router.delete('/elections/:id/candidates/:candidateId', deleteCandidate);
 
 // Results Management (Teacher can view results for their class's elections)
 router.get('/results/:electionId', adminCtrl.electionResults);

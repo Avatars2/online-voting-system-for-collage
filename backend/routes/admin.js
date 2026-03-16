@@ -25,6 +25,7 @@ router.get("/departments", adminCtrl.listDepartments);
 router.post("/departments", adminCtrl.createDepartment);
 router.post("/department", adminCtrl.createDepartment);
 router.get("/departments/:id", adminCtrl.getDepartment);
+router.put("/departments/:id", adminCtrl.updateDepartment);
 router.delete("/departments/:id", adminCtrl.deleteDepartment);
 
 // Class Management
@@ -33,6 +34,7 @@ router.get("/classes/available", adminCtrl.listAvailableClasses);
 router.post("/classes", adminCtrl.createClass);
 router.post("/class", adminCtrl.createClass);
 router.get("/classes/:id", adminCtrl.getClass);
+router.put("/classes/:id", adminCtrl.updateClass);
 router.delete("/classes/:id", adminCtrl.deleteClass);
 
 // Student Management
@@ -50,7 +52,10 @@ router.post("/notice", adminCtrl.createNotice);
 // Election Management
 router.get("/elections", adminCtrl.listElections);
 router.post("/elections", adminCtrl.createElection);
+router.put("/elections/:id", adminCtrl.updateElection);
+router.delete("/elections/:id", adminCtrl.deleteElection);
 router.post("/elections/:id/candidates", adminCtrl.addCandidate);
+router.delete("/elections/:id/candidates/:candidateId", adminCtrl.deleteCandidate);
 
 // Results
 router.get("/results/:electionId", adminCtrl.electionResults);

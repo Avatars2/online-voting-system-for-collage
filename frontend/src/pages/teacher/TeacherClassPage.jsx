@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { adminAPI, teacherAPI } from "../../services/api";
 import api from "../../services/api";
 import AdminMobileShell from "../../components/AdminMobileShell";
@@ -7,6 +7,7 @@ import { useToast } from "../../components/UI/Toast";
 
 export default function TeacherClassPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { success, error: showError } = useToast();
   const [cls, setCls] = useState(null);
   const [students, setStudents] = useState([]);
@@ -44,54 +45,22 @@ export default function TeacherClassPage() {
       console.log("Token exists:", !!token);
       console.log("Token length:", token?.length);
       
-      // Get class details using admin API
-      const classResponse = await adminAPI.getClass(id);
+      // Get class details using teacher API
+      const classResponse = await teacherAPI.getClass(id);
       console.log("Class response:", classResponse);
       const classData = classResponse.data;
       setCls(classData);
       
-      // IMMEDIATELY try admin API first to see if there are any students at all
+      // Get students using teacher API
       try {
-        console.log("=== Trying Admin API FIRST ===");
-        const adminStudentsResponse = await adminAPI.students.list();
-        const allStudents = adminStudentsResponse.data || [];
-        console.log("Admin API ALL students count:", allStudents.length);
-        console.log("Admin API ALL students:", allStudents);
-        
-        // Filter students for this specific class
-        const classStudents = allStudents.filter(student => {
-          const studentClassId = student.class?._id || student.class;
-          console.log("Student:", student.name, "Class ID:", studentClassId, "Target ID:", id);
-          return studentClassId === id;
-        });
-        console.log("Filtered students for this class:", classStudents);
-        console.log("Filtered students count:", classStudents.length);
-        
-        if (classStudents.length > 0) {
-          setStudents(classStudents);
-          console.log("✅ Students found and set!");
-        } else {
-          console.log("❌ No students found for this class");
-          // Try teacher API as backup
-          try {
-            console.log("=== Trying Teacher API as backup ===");
-            const studentsResponse = await teacherAPI.students.list(id);
-            console.log("Teacher API response:", studentsResponse);
-            if (studentsResponse.data && studentsResponse.data.length > 0) {
-              setStudents(studentsResponse.data);
-              console.log("✅ Teacher API found students!");
-            } else {
-              setStudents([]);
-              console.log("❌ No students from teacher API either");
-            }
-          } catch (teacherErr) {
-            console.error("Teacher API also failed:", teacherErr);
-            setStudents([]);
-          }
-        }
-      } catch (adminErr) {
-        console.error("=== Admin API Failed ===");
-        console.error("Admin error:", adminErr);
+        console.log("=== Getting students for teacher's class ===");
+        const studentsResponse = await teacherAPI.students.list();
+        console.log("Teacher API students response:", studentsResponse);
+        const students = studentsResponse.data || [];
+        console.log("Students count:", students.length);
+        setStudents(students);
+      } catch (studentsErr) {
+        console.error("Failed to get students:", studentsErr);
         setStudents([]);
       }
     } catch (err) {
@@ -124,8 +93,7 @@ export default function TeacherClassPage() {
   }, [id]);
 
   const handleStudentClick = (student) => {
-    setShowStudentProfile(student);
-    setShowPasswordReset(null);
+    navigate(`/teacher/student/${student._id}`);
   };
 
   const handlePasswordReset = (student) => {
@@ -204,7 +172,7 @@ export default function TeacherClassPage() {
 
     setEditLoading(true);
     try {
-      await adminAPI.students.update(showEditStudent, {
+      await teacherAPI.students.update(showEditStudent, {
         name: editForm.name.trim(),
         email: editForm.email.trim(),
         studentId: editForm.studentId.trim() || undefined,
@@ -231,7 +199,7 @@ export default function TeacherClassPage() {
     }
 
     try {
-      await adminAPI.students.delete(studentId);
+      await teacherAPI.students.delete(studentId);
       setError("");
       closeModals();
       success("Student deleted successfully!");
@@ -253,6 +221,14 @@ export default function TeacherClassPage() {
       setError("Name, Email and Temp Password are required");
       return;
     }
+    
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.email.trim())) {
+      setError("Please enter a valid email address");
+      return;
+    }
+    
     if (form.tempPassword.length < 6) {
       setError("Temp password must be at least 6 characters");
       return;

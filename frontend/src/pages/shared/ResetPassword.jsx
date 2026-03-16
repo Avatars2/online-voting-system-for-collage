@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { authAPI } from "../services/api";
-import AdminMobileShell from "../components/AdminMobileShell";
-import StudentMobileShell from "../components/StudentMobileShell";
-import { useToast } from "../components/UI/Toast";
-import { validatePassword } from "../utils/validation";
+import { authAPI } from "../../services/api";
+import AdminMobileShell from "../../components/AdminMobileShell";
+import StudentMobileShell from "../../components/StudentMobileShell";
+import { useToast } from "../../components/UI/Toast";
+import { validatePassword } from "../../utils/validation";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -146,28 +146,28 @@ export default function ResetPassword() {
           title: "Reset Password",
           subtitle: "Secure your account",
           headerColor: "bg-gradient-to-r from-blue-600 to-purple-600",
-          backPath: "/admin/profile"
+          backPath: "/admin/dashboard"
         };
       case "hod":
         return {
           title: "Change Password",
           subtitle: "Update your HOD password",
           headerColor: "bg-gradient-to-r from-green-600 to-teal-700",
-          backPath: "/hod/profile"
+          backPath: "/hod/dashboard"
         };
       case "teacher":
         return {
           title: "Change Password",
           subtitle: "Update Your Password",
           headerColor: "bg-gradient-to-r from-blue-600 to-indigo-700",
-          backPath: "/teacher/profile"
+          backPath: "/teacher/dashboard"
         };
       case "student":
         return {
           title: "Reset Password",
           subtitle: "Change your password",
           headerColor: "bg-gradient-to-r from-purple-600 to-pink-600",
-          backPath: "/student/profile"
+          backPath: "/student/dashboard"
         };
       default:
         return {
@@ -185,7 +185,7 @@ export default function ResetPassword() {
   const Shell = role === "student" ? StudentMobileShell : AdminMobileShell;
   const shellProps = role === "student" 
     ? { title: roleConfig.title, subtitle: roleConfig.subtitle, backTo: roleConfig.backPath }
-    : { title: roleConfig.title, subtitle: roleConfig.subtitle, headerColor: roleConfig.headerColor };
+    : { title: roleConfig.title, subtitle: roleConfig.subtitle, headerColor: roleConfig.headerColor, backTo: roleConfig.backPath };
 
   return (
     <Shell {...shellProps}>

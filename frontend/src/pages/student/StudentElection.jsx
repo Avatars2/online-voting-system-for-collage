@@ -8,6 +8,7 @@ export default function StudentElection() {
   const [elections, setElections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     const fetchElections = async () => {
@@ -22,6 +23,13 @@ export default function StudentElection() {
       }
     };
     fetchElections();
+
+    // Add real-time updates - refresh every minute
+    const interval = setInterval(() => {
+      fetchElections();
+    }, 60000); // Refresh every 60 seconds
+
+    return () => clearInterval(interval); // Cleanup on unmount
   }, []);
 
   const getStatus = (election) => {
@@ -29,8 +37,9 @@ export default function StudentElection() {
     const now = new Date();
     const start = election.startDate ? new Date(election.startDate) : null;
     const end = election.endDate ? new Date(election.endDate) : null;
+    
     if (start && now < start) return "Upcoming";
-    if (end && now > end) return "Closed";
+    if (end && now >= end) return "Closed"; // Changed from > to >= to handle exact end time
     return "Active";
   };
 
@@ -46,72 +55,214 @@ export default function StudentElection() {
     }
   };
 
+  // Filter elections based on search
+  const getFilteredElections = () => {
+    if (!search) return elections;
+    
+    return elections.filter((election) =>
+      String(election.title || "").toLowerCase().includes(search.toLowerCase())
+    );
+  };
+
+  // Categorize elections by status
+  const categorizeElections = () => {
+    const filtered = getFilteredElections();
+    const now = new Date();
+
+    const active = filtered.filter(e => {
+      const status = getStatus(e); // Use the updated getStatus function
+      return status === "Active";
+    });
+
+    const upcoming = filtered.filter(e => {
+      const status = getStatus(e); // Use the updated getStatus function
+      return status === "Upcoming";
+    });
+
+    const closed = filtered.filter(e => {
+      const status = getStatus(e); // Use the updated getStatus function
+      return status === "Closed";
+    });
+
+    return { active, upcoming, closed };
+  };
+
+  // Render election card (matching results page style)
+  const renderElectionCard = (election, status = "active") => {
+    const hasVoted = election.hasVoted;
+    const candidateCount = election.candidateCount || (election.candidates ? election.candidates.length : 0);
+    
+    const statusConfig = {
+      active: {
+        borderColor: hasVoted ? "border-gray-200 bg-gray-50" : "border-green-200 bg-green-50",
+        statusColor: hasVoted ? "text-purple-600" : "text-green-600",
+        statusText: hasVoted ? "Already Voted" : "Vote Now"
+      },
+      upcoming: {
+        borderColor: "border-yellow-200 bg-yellow-50",
+        statusColor: "text-yellow-600",
+        statusText: "Scheduled"
+      },
+      closed: {
+        borderColor: "hover:border-slate-300 hover:bg-slate-50",
+        statusColor: "text-gray-600",
+        statusText: "Ended"
+      }
+    };
+
+    const config = statusConfig[status];
+    const isClickable = status === "active" && !hasVoted;
+
+    const content = (
+      <div className={`w-full text-left p-4 rounded-xl border transition ${config.borderColor}`}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="font-semibold text-gray-900 truncate">{election.title}</div>
+            {election.description && (
+              <div className="text-xs text-gray-600 mt-1 truncate">{election.description}</div>
+            )}
+            <div className={`text-xs ${config.statusColor} mt-1`}>
+              {election.level === "department"
+                ? `Department Election • `
+                : election.level === "class"
+                  ? `Class Election • `
+                  : `All College (Global) • `}
+              {status === "active" && election.endDate && 
+                `Ends: ${new Date(election.endDate).toLocaleString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric', 
+                  hour: '2-digit', 
+                  minute: '2-digit' 
+                })}`
+              }
+              {status === "upcoming" && election.startDate && 
+                `Starts: ${new Date(election.startDate).toLocaleString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric', 
+                  hour: '2-digit', 
+                  minute: '2-digit' 
+                })}`
+              }
+              {status === "closed" && election.endDate && 
+                `Ended: ${new Date(election.endDate).toLocaleString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric', 
+                  hour: '2-digit', 
+                  minute: '2-digit' 
+                })}`
+              }
+              {status === "active" && !hasVoted && " 🗳️ " + config.statusText}
+              {status === "active" && hasVoted && " ✅ " + config.statusText}
+              {status === "upcoming" && " 📅 " + config.statusText}
+              {status === "closed" && " 📊 " + config.statusText}
+            </div>
+            {/* Add end time for active elections */}
+            {status === "active" && election.endDate && (
+              <div className="text-xs text-gray-500 mt-1">
+                Voting ends: {new Date(election.endDate).toLocaleString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric', 
+                  hour: '2-digit', 
+                  minute: '2-digit' 
+                })}
+              </div>
+            )}
+          </div>
+          {candidateCount > 0 && (
+            <div className="text-xs text-gray-600">
+              {candidateCount} candidates
+            </div>
+          )}
+        </div>
+      </div>
+    );
+
+    if (isClickable) {
+      return (
+        <button
+          key={election._id}
+          onClick={() => handleElectionClick(election)}
+        >
+          {content}
+        </button>
+      );
+    }
+
+    return (
+      <div key={election._id}>
+        {content}
+      </div>
+    );
+  };
+
+  // Render elections section
+  const renderElectionsSection = (title, elections, status, countColor = "text-gray-500") => {
+    if (elections.length === 0) return null;
+
+    return (
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
+        <div className="flex justify-between items-center mb-3">
+          <div className="font-bold text-gray-900">{title}</div>
+          <div className={`text-xs font-semibold ${countColor}`}>{elections.length} {status.toUpperCase()}</div>
+        </div>
+        <div className="space-y-2">
+          {elections.map((election) => renderElectionCard(election, status))}
+        </div>
+      </div>
+    );
+  };
+
+  if (loading) {
+    return (
+      <StudentMobileShell title="Available Elections" subtitle="Loading...">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-gray-600">Loading...</div>
+        </div>
+      </StudentMobileShell>
+    );
+  }
+
+  const { active, upcoming, closed } = categorizeElections();
+
   return (
     <StudentMobileShell
-      title="Elections"
-      subtitle="Available polls"
+      title="Available Elections"
+      subtitle="Participate in voting"
       backTo="/student/dashboard"
     >
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
+        <div className="p-3 bg-red-50 text-red-700 rounded-xl text-sm border border-red-200 mb-4">
           {error}
         </div>
       )}
 
-      {loading ? (
-        <div className="text-white/90 text-sm">Loading...</div>
-      ) : elections.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center text-gray-600">
-          No elections available
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {elections.map((election) => {
-            const status = getStatus(election);
-            const hasVoted = election.hasVoted;
-            return (
-              <div
-                key={election._id}
-                className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-4 cursor-pointer hover:bg-emerald-50 transition ${
-                  status === "Active" && !hasVoted ? "" : "opacity-80"
-                }`}
-                onClick={() => handleElectionClick(election)}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="font-semibold text-gray-900 text-base truncate">{election.title}</h3>
-                    {election.description ? (
-                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">{election.description}</p>
-                    ) : null}
-                    {(election.startDate || election.endDate) ? (
-                      <p className="text-xs text-gray-600 mt-2">
-                        📅 {election.startDate ? new Date(election.startDate).toLocaleString() : ""}{" "}
-                        - {election.endDate ? new Date(election.endDate).toLocaleString() : ""}
-                      </p>
-                    ) : null}
-                  </div>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
-                      hasVoted
-                        ? "bg-purple-100 text-purple-800"
-                        : status === "Active"
-                          ? "bg-emerald-100 text-emerald-800"
-                          : status === "Upcoming"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {hasVoted ? "Voted" : status}
-                  </span>
-                </div>
-                {hasVoted && status === "Active" ? (
-                  <div className="mt-3 text-purple-700 text-sm font-semibold">You have already voted</div>
-                ) : status === "Active" ? (
-                  <div className="mt-3 text-emerald-700 text-sm font-semibold">Vote Now →</div>
-                ) : null}
-              </div>
-            );
-          })}
+      {/* Search Bar */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
+        <input
+          type="text"
+          placeholder="Search elections..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="input-base w-full"
+        />
+      </div>
+
+      {/* Elections by Status */}
+      {renderElectionsSection("Active Elections", active, "active", "text-green-500")}
+      {renderElectionsSection("Upcoming Elections", upcoming, "upcoming", "text-yellow-500")}
+
+      {/* No Elections Message */}
+      {getFilteredElections().length === 0 && !loading && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
+          <div className="text-center py-8">
+            <div className="text-4xl mb-4">🗳️</div>
+            <div className="text-gray-600 font-medium">
+              {search ? "No elections found matching your search" : "No elections available yet"}
+            </div>
+            <div className="text-sm text-gray-500 mt-2">
+              {search ? "Try a different search term" : "Check back later for new voting opportunities"}
+            </div>
+          </div>
         </div>
       )}
     </StudentMobileShell>

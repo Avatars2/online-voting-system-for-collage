@@ -28,18 +28,28 @@ export async function listElections(req, res){
     if (deptId) or.push({ level: "department", department: deptId });
     if (classId) or.push({ level: "class", class: classId });
 
-    const items = await Election.find({ $or: or })
+    const elections = await Election.find({ $or: or })
       .sort({ createdAt: -1 })
       .populate("department class");
     
-    // Add voted status to each election
+    // Add candidates and voted status to each election
     const votedElectionIds = (user.votedElections || []).map(e => e._id.toString());
-    const electionsWithStatus = items.map(election => ({
-      ...election.toObject(),
-      hasVoted: votedElectionIds.includes(election._id.toString())
-    }));
     
-    res.json(electionsWithStatus);
+    const items = await Promise.all(
+      elections.map(async (e) => {
+        const candidates = await Candidate.find({ election: e._id })
+          .populate("student", "name email studentId");
+        
+        return {
+          ...e.toObject(),
+          candidates: candidates,
+          candidateCount: candidates.length,
+          hasVoted: votedElectionIds.includes(e._id.toString())
+        };
+      })
+    );
+    
+    res.json(items);
   } catch (err) {
     console.error('listElections error:', err);
     res.status(500).json({ error: 'Server error' });
@@ -65,8 +75,88 @@ export async function getElectionCandidates(req, res){
 
     if (!eligible) return res.status(403).json({ error: "You are not eligible for this election" });
 
-    const candidates = await Candidate.find({ election: electionId });
-    res.json({ election, candidates });
+    const candidates = await Candidate.find({ election: electionId })
+      .sort({ votes: -1 })
+      .populate("student", "name email studentId department class");
+
+    // Calculate voting statistics for students
+    let totalVotes = 0;
+    let studentsWhoVoted = 0;
+    let studentsWhoDidNotVote = 0;
+
+    console.log("Student API - Calculating voting stats for election:", electionId);
+    console.log("Election level:", election.level);
+
+    if (election.level === "global") {
+      // For global elections, count all students
+      const allStudents = await User.countDocuments({ role: "student" });
+      const studentsWithVotes = await User.countDocuments({ 
+        role: "student", 
+        votedElections: { $in: [new mongoose.Types.ObjectId(electionId)] }
+      });
+      
+      totalVotes = allStudents; // Total eligible students, not just votes received
+      studentsWhoVoted = studentsWithVotes;
+      studentsWhoDidNotVote = allStudents - studentsWithVotes;
+      
+      console.log("Student API - Global election stats:", { allStudents, studentsWithVotes, totalVotes });
+    } else if (election.level === "department") {
+      // For department elections, count students in that department
+      const allStudents = await User.countDocuments({ 
+        role: "student", 
+        $or: [
+          { department: election.department },
+          { assignedDepartment: election.department }
+        ]
+      });
+      const studentsWithVotes = await User.countDocuments({ 
+        role: "student",
+        $or: [
+          { department: election.department },
+          { assignedDepartment: election.department }
+        ],
+        votedElections: { $in: [new mongoose.Types.ObjectId(electionId)] }
+      });
+      
+      totalVotes = allStudents; // Total eligible students, not just votes received
+      studentsWhoVoted = studentsWithVotes;
+      studentsWhoDidNotVote = allStudents - studentsWithVotes;
+      
+      console.log("Student API - Department election stats:", { allStudents, studentsWithVotes, totalVotes, deptId: election.department });
+    } else if (election.level === "class") {
+      // For class elections, count students in that class
+      const allStudents = await User.countDocuments({ 
+        role: "student", 
+        $or: [
+          { class: election.class },
+          { assignedClass: election.class }
+        ]
+      });
+      const studentsWithVotes = await User.countDocuments({ 
+        role: "student",
+        $or: [
+          { class: election.class },
+          { assignedClass: election.class }
+        ],
+        votedElections: { $in: [new mongoose.Types.ObjectId(electionId)] }
+      });
+      
+      totalVotes = allStudents; // Total eligible students, not just votes received
+      studentsWhoVoted = studentsWithVotes;
+      studentsWhoDidNotVote = allStudents - studentsWithVotes;
+      
+      console.log("Student API - Class election stats:", { allStudents, studentsWithVotes, totalVotes, classId: election.class });
+    }
+
+    res.json({ 
+      election, 
+      candidates,
+      votingStats: {
+        totalVotes,
+        studentsWhoVoted,
+        studentsWhoDidNotVote
+      }
+    });
   } catch (err) {
     console.error('getElectionCandidates error:', err);
     res.status(500).json({ error: 'Server error' });

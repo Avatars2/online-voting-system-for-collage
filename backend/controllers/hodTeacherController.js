@@ -1,15 +1,28 @@
+import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Department from '../models/Department.js';
 import Class from '../models/Class.js';
 import bcrypt from 'bcryptjs';
+import emailValidationService from '../services/emailValidationService.js';
 
 // Register HOD (by admin only)
 export const registerHOD = async (req, res) => {
   try {
     const { name, email, password, phone, departmentId } = req.body;
 
+    // Enhanced email validation using Google-like validation
+    const emailValidation = await emailValidationService.fullValidate(email.trim());
+    if (!emailValidation.isValid) {
+      return res.status(400).json({ 
+        error: emailValidation.message,
+        suggestions: emailValidation.suggestions || []
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
     // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({ error: 'User with this email already exists' });
     }
@@ -22,10 +35,10 @@ export const registerHOD = async (req, res) => {
 
     // Create HOD
     const hod = new User({
-      name,
-      email,
+      name: name.trim(),
+      email: normalizedEmail,
       password,
-      phone,
+      phone: phone ? phone.trim() : '',
       role: 'hod',
       department: departmentId,        // Where HOD was registered
       assignedDepartment: departmentId // Where HOD is assigned (same for now)
@@ -36,6 +49,17 @@ export const registerHOD = async (req, res) => {
     // Update department with HOD
     department.hod = hod._id;
     await department.save();
+
+    // Send registration email
+    try {
+      const loginLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`;
+      const { sendRegistrationEmail } = await import('./authController.js');
+      await sendRegistrationEmail(normalizedEmail, name.trim(), 'hod', loginLink);
+      console.log(`Registration email sent to HOD: ${normalizedEmail}`);
+    } catch (emailError) {
+      console.error('Failed to send registration email to HOD:', emailError);
+      // Continue even if email fails
+    }
 
     res.status(201).json({
       message: 'HOD registered successfully',
@@ -59,8 +83,19 @@ export const registerTeacher = async (req, res) => {
   try {
     const { name, email, password, phone, classId } = req.body;
 
+    // Enhanced email validation using Google-like validation
+    const emailValidation = await emailValidationService.fullValidate(email.trim());
+    if (!emailValidation.isValid) {
+      return res.status(400).json({ 
+        error: emailValidation.message,
+        suggestions: emailValidation.suggestions || []
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
     // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({ error: 'User with this email already exists' });
     }
@@ -73,10 +108,10 @@ export const registerTeacher = async (req, res) => {
 
     // Create Teacher
     const teacher = new User({
-      name,
-      email,
+      name: name.trim(),
+      email: normalizedEmail,
       password,
-      phone,
+      phone: phone ? phone.trim() : '',
       role: 'teacher',
       assignedClass: classId,
       assignedDepartment: classObj.department._id
@@ -87,6 +122,17 @@ export const registerTeacher = async (req, res) => {
     // Update class with class teacher
     classObj.classTeacher = teacher._id;
     await classObj.save();
+
+    // Send registration email
+    try {
+      const loginLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`;
+      const { sendRegistrationEmail } = await import('./authController.js');
+      await sendRegistrationEmail(normalizedEmail, name.trim(), 'teacher', loginLink);
+      console.log(`Registration email sent to Teacher: ${normalizedEmail}`);
+    } catch (emailError) {
+      console.error('Failed to send registration email to Teacher:', emailError);
+      // Continue even if email fails
+    }
 
     res.status(201).json({
       message: 'Teacher registered successfully',
@@ -197,12 +243,21 @@ export const registerStudent = async (req, res) => {
       return res.status(400).json({ error: "name, email and tempPassword are required" });
     }
 
+    // Enhanced email validation using Google-like validation
+    const emailValidation = await emailValidationService.fullValidate(email.trim());
+    if (!emailValidation.isValid) {
+      return res.status(400).json({ 
+        error: emailValidation.message,
+        suggestions: emailValidation.suggestions || []
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
     // Password validation
     if (!tempPassword || tempPassword.length < 6) {
       return res.status(400).json({ error: "Password must be at least 6 characters" });
     }
-
-    const normalizedEmail = String(email).trim().toLowerCase();
 
     // Check if user already exists
     const existing = await User.findOne({ email: normalizedEmail });
@@ -251,6 +306,17 @@ export const registerStudent = async (req, res) => {
     
     console.log("HOD/Teacher registerStudent API - created new student:", { _id: user._id, class: user.class, department: user.department });
     const { password: _, ...safe } = user.toObject();
+
+    // Send registration email
+    try {
+      const loginLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`;
+      const { sendRegistrationEmail } = await import('./authController.js');
+      await sendRegistrationEmail(normalizedEmail, String(name).trim(), 'student', loginLink);
+      console.log(`Registration email sent to Student: ${normalizedEmail}`);
+    } catch (emailError) {
+      console.error('Failed to send registration email to Student:', emailError);
+      // Continue even if email fails
+    }
     
     res.status(201).json({
       message: 'Student registered successfully',
@@ -295,14 +361,27 @@ export const getStudents = async (req, res) => {
     
     if (req.user.role === 'hod') {
       // HOD can see all students in their department
-      filter.department = req.user.assignedDepartment;
+      const departmentId = req.user.assignedDepartment || req.user.department;
+      console.log("HOD using department ID:", departmentId);
+      console.log("HOD user fields:", {
+        assignedDepartment: req.user.assignedDepartment,
+        department: req.user.department,
+        _id: req.user._id
+      });
+      
+      if (departmentId) {
+        filter.department = departmentId;
+      } else {
+        console.log("HOD has no department assigned, returning all students");
+        // If no department assigned, return all students (fallback)
+      }
     } else if (req.user.role === 'teacher') {
       // Teacher can only see students in their assigned class
       filter.class = req.user.assignedClass;
       console.log("Teacher using assigned class:", req.user.assignedClass);
     }
 
-    // Additional filters from query params
+    // Additional filters from query params for non-teachers
     if (req.query.department && req.user.role === 'admin') {
       filter.department = req.query.department;
     }
@@ -341,5 +420,169 @@ export const getAllTeachers = async (req, res) => {
     res.json(teachers);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const deleteStudent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid student ID" });
+    }
+
+    // Find the student first
+    const student = await User.findById(id);
+    
+    if (!student) {
+      return res.status(404).json({ error: "Student not found" });
+    }
+
+    if (student.role !== 'student') {
+      return res.status(400).json({ error: "User is not a student" });
+    }
+
+    // For teachers, check if the student belongs to their assigned class
+    if (req.user.role === 'teacher') {
+      if (!student.class || student.class.toString() !== req.user.assignedClass.toString()) {
+        return res.status(403).json({ error: "Access denied. You can only delete students from your assigned class." });
+      }
+    }
+
+    // Delete the student
+    await User.findByIdAndDelete(id);
+    
+    console.log(`Student ${student.name} deleted by ${req.user.role} ${req.user.name}`);
+    res.json({ message: "Student deleted successfully" });
+  } catch (error) {
+    console.error("deleteStudent error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+export const deleteCandidate = async (req, res) => {
+  try {
+    const { id } = req.params; // Election ID
+    const { candidateId } = req.params; // Candidate ID
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid election ID" });
+    }
+    
+    if (!mongoose.Types.ObjectId.isValid(candidateId)) {
+      return res.status(400).json({ error: "Invalid candidate ID" });
+    }
+
+    // Find the election first
+    const Election = mongoose.model('Election');
+    const election = await Election.findById(id).populate('class');
+    
+    if (!election) {
+      return res.status(404).json({ error: "Election not found" });
+    }
+
+    // For teachers, check if the election belongs to their assigned class
+    if (req.user.role === 'teacher') {
+      if (!election.class || election.class._id.toString() !== req.user.assignedClass.toString()) {
+        return res.status(403).json({ error: "Access denied. You can only delete candidates from elections in your assigned class." });
+      }
+    }
+
+    // Find and delete the candidate from the Candidate collection
+    const Candidate = mongoose.model('Candidate');
+    const candidate = await Candidate.findById(candidateId);
+    
+    if (!candidate) {
+      return res.status(404).json({ error: "Candidate not found" });
+    }
+
+    // Verify candidate belongs to this election
+    if (candidate.election.toString() !== id) {
+      return res.status(400).json({ error: "Candidate does not belong to this election" });
+    }
+
+    await Candidate.findByIdAndDelete(candidateId);
+    
+    console.log(`Candidate deleted from election ${election.title} by ${req.user.role} ${req.user.name}`);
+    res.json({ message: "Candidate deleted successfully" });
+  } catch (error) {
+    console.error("deleteCandidate error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+export const addCandidate = async (req, res) => {
+  try {
+    const { id } = req.params; // Election ID
+    const { userId } = req.body;
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid election ID" });
+    }
+    
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+
+    // Find the election first
+    const Election = mongoose.model('Election');
+    const election = await Election.findById(id).populate('class');
+    
+    if (!election) {
+      return res.status(404).json({ error: "Election not found" });
+    }
+
+    // For teachers, check if the election belongs to their assigned class
+    if (req.user.role === 'teacher') {
+      if (!election.class || election.class._id.toString() !== req.user.assignedClass.toString()) {
+        return res.status(403).json({ error: "Access denied. You can only add candidates to elections in your assigned class." });
+      }
+    }
+
+    // Find the candidate user
+    const candidate = await User.findById(userId);
+    
+    if (!candidate) {
+      return res.status(404).json({ error: "Candidate user not found" });
+    }
+
+    if (candidate.role !== 'student') {
+      return res.status(400).json({ error: "Only students can be added as candidates" });
+    }
+
+    // For teachers, check if the candidate belongs to their assigned class
+    if (req.user.role === 'teacher') {
+      if (!candidate.class || candidate.class.toString() !== req.user.assignedClass.toString()) {
+        return res.status(403).json({ error: "Access denied. You can only add students from your assigned class as candidates." });
+      }
+    }
+
+    // Check if candidate already exists in the Candidate collection
+    const Candidate = mongoose.model('Candidate');
+    const existingCandidate = await Candidate.findOne({ 
+      election: id, 
+      student: candidate._id 
+    });
+    
+    if (existingCandidate) {
+      return res.status(400).json({ error: "This student is already registered as a candidate for this election" });
+    }
+
+    // Create candidate in the Candidate collection (same as admin controller)
+    const newCandidate = await Candidate.create({
+      election: id,
+      student: candidate._id,
+      name: candidate.name,
+      position: req.body.position || "Candidate",
+    });
+    
+    console.log(`Candidate ${candidate.name} added to election ${election.title} by ${req.user.role} ${req.user.name}`);
+    res.status(201).json(newCandidate);
+  } catch (error) {
+    console.error("addCandidate error:", error);
+    if (error?.code === 11000) {
+      return res.status(409).json({ error: "This student is already registered as a candidate for this election" });
+    }
+    res.status(500).json({ error: "Server error" });
   }
 };

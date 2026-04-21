@@ -9,6 +9,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      strategies: 'generateSW',
       manifest: {
         name: 'Online Voting System',
         short_name: 'OVS',
@@ -47,6 +48,9 @@ export default defineConfig({
             }
           }
         ]
+      },
+      devOptions: {
+        enabled: false
       }
     })
   ],

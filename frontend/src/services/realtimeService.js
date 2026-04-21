@@ -18,7 +18,7 @@ class RealtimeNotificationService {
     }
 
     try {
-      const wsUrl = `ws://localhost:5001/?token=${token}`;
+      const wsUrl = `wss://online-voting-system-for-collage-wk.vercel.app/?token=${token}`;
       console.log('🔌 Connecting to WebSocket:', wsUrl);
       
       // Use native WebSocket or fallback

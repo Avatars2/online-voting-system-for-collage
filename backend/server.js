@@ -84,6 +84,25 @@ app.use('/api/notices', generalLimiter, noticeRoutes);
 app.post('/api/validate/email-quick', quickValidateEmail);
 app.post('/api/validate/email-full', fullValidateEmail);
 
+// Root route handler
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Online Voting System API is running',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth',
+      admin: '/api/admin',
+      hod: '/api/hod',
+      teacher: '/api/teacher',
+      student: '/api/student',
+      notices: '/api/notices'
+    }
+  });
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.status(200).json({

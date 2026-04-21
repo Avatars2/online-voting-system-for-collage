@@ -18,6 +18,17 @@ export default function UnifiedStudentsPage() {
   const [students, setStudents] = useState([]);
   const [classData, setClassData] = useState(null);
   const [department, setDepartment] = useState(null);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  // Auto-hide success message after 2 seconds
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage("");
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
 
   // Edit states
   const [editingId, setEditingId] = useState(null);
@@ -287,7 +298,7 @@ export default function UnifiedStudentsPage() {
       setEditModalOpen(false);
       setEditingId(null);
       await fetchStudents();
-      success("Student updated successfully!");
+      setSuccessMessage("Student updated successfully!");
     } catch (err) {
       console.error("Failed to update student:", err);
       setError(err.response?.data?.error || "Failed to update student");
@@ -307,7 +318,7 @@ export default function UnifiedStudentsPage() {
   const handleDeleteStudent = async (studentId, studentName) => {
     if (!roleConfig.canDelete) return;
     
-    if (!window.confirm(`Are you sure you want to delete ${studentName}? This action cannot be undone.`)) {
+    if (!window.confirm(`Are you sure you want to delete ${studentName}?`)) {
       return;
     }
 
@@ -326,7 +337,7 @@ export default function UnifiedStudentsPage() {
       }
       
       setError("");
-      success(`Student "${studentName}" deleted successfully!`);
+      setSuccessMessage(`Student "${studentName}" deleted successfully!`);
       
       // Refresh the students list
       await fetchStudents();
@@ -400,10 +411,10 @@ export default function UnifiedStudentsPage() {
       
       if (classEntries.length === 0) {
         return (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 sm:p-12 lg:p-16">
             <div className="text-center">
-              <div className="text-4xl mb-2">👥</div>
-              <p className="text-gray-500 text-sm">
+              <div className="text-5xl sm:text-6xl mb-4">?</div>
+              <p className="text-gray-500 text-base sm:text-lg">
                 No students found in your department
               </p>
               <p className="text-xs text-gray-400 mt-1">
@@ -443,20 +454,20 @@ export default function UnifiedStudentsPage() {
     return (
       <div
         key={student._id}
-        className={`${userRole === "admin" ? "bg-blue-50 hover:bg-blue-100 border border-blue-200" : "bg-gray-50"} rounded-xl p-3 transition-colors`}
+        className={`${userRole === "admin" ? "bg-blue-50 hover:bg-blue-100 border border-blue-200" : "bg-gray-50 hover:bg-gray-100"} rounded-xl p-4 sm:p-6 transition-colors`}
       >
         <div className="flex justify-between items-start">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-900 text-sm truncate">{student.name}</h3>
+            <h3 className="font-semibold text-gray-900 text-base sm:text-lg truncate">{student.name}</h3>
             <div className="mt-1 space-y-1">
-              <p className="text-xs text-gray-600 truncate">
+              <p className="text-sm text-gray-600 truncate">
                 📧 {student.email}
               </p>
-              <p className="text-xs text-gray-600">
+              <p className="text-sm text-gray-600">
                 🆔 {student.studentId || "N/A"}
               </p>
               {student.phone && (
-                <p className="text-xs text-gray-600">
+                <p className="text-sm text-gray-600">
                   📱 {student.phone}
                 </p>
               )}
@@ -466,7 +477,7 @@ export default function UnifiedStudentsPage() {
             {roleConfig.canEdit && (
               <button
                 onClick={() => handleEdit(student)}
-                className="px-2 py-1 bg-orange-100 text-orange-700 rounded hover:bg-orange-200 transition-colors text-xs font-medium whitespace-nowrap"
+                className="px-3 py-2 bg-orange-100 text-orange-700 rounded hover:bg-orange-200 transition-colors text-sm font-medium whitespace-nowrap"
               >
                 Edit
               </button>
@@ -476,7 +487,7 @@ export default function UnifiedStudentsPage() {
               <button
                 onClick={() => handleDeleteStudent(student._id, student.name)}
                 disabled={deleteLoading}
-                className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                className="px-3 py-2 bg-red-100 text-red-700 rounded text-sm font-medium hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
               >
                 {deleteLoading ? "..." : "🗑️"}
               </button>
@@ -492,8 +503,8 @@ export default function UnifiedStudentsPage() {
     if (!roleConfig.showClassInfo || !classData) return null;
 
     return (
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
-        <div className="font-bold text-gray-900 mb-3">Class Information</div>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 lg:p-10 mb-6">
+        <div className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">Class Information</div>
         <div className="space-y-2">
           <div className="flex justify-between">
             <span className="text-sm text-gray-600">Class:</span>
@@ -519,8 +530,8 @@ export default function UnifiedStudentsPage() {
     if (!roleConfig.showDepartmentInfo || !department) return null;
 
     return (
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
-        <div className="font-bold text-gray-900 mb-3">Department Information</div>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 lg:p-10 mb-6">
+        <div className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">Department Information</div>
         <div className="space-y-2">
           <div className="flex justify-between">
             <span className="text-sm text-gray-600">Department:</span>
@@ -538,14 +549,14 @@ export default function UnifiedStudentsPage() {
   if (loading) {
     return (
       <AdminMobileShell title={roleConfig.title} subtitle="Loading...">
-        <div className="space-y-3">
+        <div className="space-y-4 sm:space-y-6">
           {[1, 2, 3, 4, 5].map((i) => (
             <div
               key={i}
-              className="bg-white rounded-xl border border-gray-100 p-4 animate-pulse"
+              className="bg-white rounded-xl border border-gray-100 p-6 sm:p-8 animate-pulse"
             >
-              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+              <div className="h-6 sm:h-8 bg-gray-200 rounded w-3/4 mb-3 sm:mb-4"></div>
+              <div className="h-4 sm:h-6 bg-gray-200 rounded w-1/2"></div>
             </div>
           ))}
         </div>
@@ -566,16 +577,22 @@ export default function UnifiedStudentsPage() {
         </div>
       )}
 
+      {successMessage && (
+        <div className="p-3 bg-green-50 text-green-700 rounded-xl text-sm border border-green-200 mb-4">
+          ✓ {successMessage}
+        </div>
+      )}
+
       {/* Search Bar */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 lg:p-10 mb-6">
         <input
           type="text"
           placeholder="Search students by name, email, or ID..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="input-base w-full"
+          className="input-base w-full text-base sm:text-lg px-4 py-3 sm:px-6 sm:py-4"
         />
-        <p className="text-sm text-gray-600 mt-2">
+        <p className="text-base sm:text-lg text-gray-600 mt-3">
           {filteredStudents.length} of {students.length} students
         </p>
       </div>
@@ -590,10 +607,10 @@ export default function UnifiedStudentsPage() {
       {(userRole === "admin" || userRole === "hod") ? (
         // Admin and HOD get grouped view
         filteredStudents.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 sm:p-12 lg:p-16">
             <div className="text-center">
-              <div className="text-4xl mb-2">👥</div>
-              <p className="text-gray-500 text-sm">
+              <div className="text-5xl sm:text-6xl mb-4">?</div>
+              <p className="text-gray-500 text-base sm:text-lg">
                 {searchTerm ? "No students found matching your search" : 
                  userRole === "admin" ? "No students registered yet" :
                  "No students in your department yet"}
@@ -608,15 +625,15 @@ export default function UnifiedStudentsPage() {
         )
       ) : (
         // Teacher gets regular list view
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-          <div className="flex justify-between items-center mb-4">
-            <div className="font-bold text-gray-900">{roleConfig.studentType}</div>
-            <div className="text-xs font-semibold text-gray-500">{filteredStudents.length} FOUND</div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 lg:p-10">
+          <div className="flex justify-between items-center mb-4 sm:mb-6">
+            <div className="text-lg sm:text-xl font-bold text-gray-900">{roleConfig.studentType}</div>
+            <div className="text-sm font-semibold text-gray-500">{filteredStudents.length} FOUND</div>
           </div>
 
           {filteredStudents.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="text-4xl mb-2">👥</div>
+            <div className="text-center py-8 animate-fadeIn">
+              <div className="text-4xl mb-2 animate-bounce">?</div>
               <p className="text-gray-500 text-sm">
                 {searchTerm ? "No students found matching your search" : "No students in your class yet"}
               </p>
@@ -626,7 +643,11 @@ export default function UnifiedStudentsPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {filteredStudents.map((student) => renderStudentCard(student))}
+              {filteredStudents.map((student, index) => (
+                <div key={student._id} className="animate-fadeInUp" style={{ animationDelay: `${index * 50}ms` }}>
+                  {renderStudentCard(student)}
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -700,15 +721,21 @@ export default function UnifiedStudentsPage() {
               {/* Phone */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone Number
+                  Phone Number (10 digits)
                 </label>
                 <input
                   type="tel"
                   value={editForm.phone}
-                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                  onChange={(e) => {
+                    // Only allow digits, limit to 10
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    setEditForm({ ...editForm, phone: value });
+                  }}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="+1 (555) 123-4567"
+                  placeholder="1234567890"
+                  maxLength={10}
                 />
+                <p className="text-xs text-gray-500 mt-1">Please enter exactly 10 digits</p>
               </div>
 
               {/* Action Buttons */}

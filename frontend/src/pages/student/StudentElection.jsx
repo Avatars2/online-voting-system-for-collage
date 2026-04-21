@@ -24,10 +24,10 @@ export default function StudentElection() {
     };
     fetchElections();
 
-    // Add real-time updates - refresh every minute
+    // Add real-time updates - refresh every 5 minutes instead of 1 minute to reduce rate limiting
     const interval = setInterval(() => {
       fetchElections();
-    }, 60000); // Refresh every 60 seconds
+    }, 300000); // Refresh every 5 minutes (300,000 ms) instead of 60 seconds
 
     return () => clearInterval(interval); // Cleanup on unmount
   }, []);
@@ -114,29 +114,43 @@ export default function StudentElection() {
     const isClickable = status === "active" && !hasVoted;
 
     const content = (
-      <div className={`w-full text-left p-4 rounded-xl border transition ${config.borderColor}`}>
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="font-semibold text-gray-900 truncate">{election.title}</div>
+      <div className={`w-full text-left p-4 sm:p-6 rounded-xl border transition-all duration-300 hover:scale-[1.01] hover:shadow-md ${config.borderColor}`}>
+        <div className="flex items-center justify-between gap-3 sm:gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold text-gray-900 text-base sm:text-lg truncate">{election.title}</div>
             {election.description && (
-              <div className="text-xs text-gray-600 mt-1 truncate">{election.description}</div>
+              <div className="text-sm text-gray-600 mt-1 truncate">{election.description}</div>
             )}
-            <div className={`text-xs ${config.statusColor} mt-1`}>
+            <div className={`text-xs sm:text-sm ${config.statusColor} mt-1 sm:mt-2 font-medium`}>
               {election.level === "department"
-                ? `Department Election • `
+                ? `Department Election${status === "active" && election.endDate 
+                  ? ` Ends: ${new Date(election.endDate).toLocaleString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric', 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}` 
+                  : ''}`
                 : election.level === "class"
-                  ? `Class Election • `
-                  : `All College (Global) • `}
-              {status === "active" && election.endDate && 
-                `Ends: ${new Date(election.endDate).toLocaleString('en-US', { 
-                  month: 'short', 
-                  day: 'numeric', 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
-                })}`
+                  ? `Class Election${status === "active" && election.endDate 
+                    ? ` Ends: ${new Date(election.endDate).toLocaleString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric', 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}` 
+                    : ''}`
+                  : `College Election${status === "active" && election.endDate 
+                    ? ` Ends: ${new Date(election.endDate).toLocaleString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric', 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}` 
+                    : ''}`
               }
               {status === "upcoming" && election.startDate && 
-                `Starts: ${new Date(election.startDate).toLocaleString('en-US', { 
+                ` Starts: ${new Date(election.startDate).toLocaleString('en-US', { 
                   month: 'short', 
                   day: 'numeric', 
                   hour: '2-digit', 
@@ -144,17 +158,17 @@ export default function StudentElection() {
                 })}`
               }
               {status === "closed" && election.endDate && 
-                `Ended: ${new Date(election.endDate).toLocaleString('en-US', { 
+                ` Ended: ${new Date(election.endDate).toLocaleString('en-US', { 
                   month: 'short', 
                   day: 'numeric', 
                   hour: '2-digit', 
                   minute: '2-digit' 
                 })}`
               }
-              {status === "active" && !hasVoted && " 🗳️ " + config.statusText}
-              {status === "active" && hasVoted && " ✅ " + config.statusText}
-              {status === "upcoming" && " 📅 " + config.statusText}
-              {status === "closed" && " 📊 " + config.statusText}
+              {status === "active" && !hasVoted && " " + config.statusText}
+              {status === "active" && hasVoted && " " + config.statusText}
+              {status === "upcoming" && " " + config.statusText}
+              {status === "closed" && " " + config.statusText}
             </div>
             {/* Add end time for active elections */}
             {status === "active" && election.endDate && (
@@ -200,13 +214,17 @@ export default function StudentElection() {
     if (elections.length === 0) return null;
 
     return (
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
-        <div className="flex justify-between items-center mb-3">
-          <div className="font-bold text-gray-900">{title}</div>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 lg:p-10 mb-6">
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <div className="text-lg sm:text-xl font-bold text-gray-900">{title}</div>
           <div className={`text-xs font-semibold ${countColor}`}>{elections.length} {status.toUpperCase()}</div>
         </div>
-        <div className="space-y-2">
-          {elections.map((election) => renderElectionCard(election, status))}
+        <div className="space-y-3 sm:space-y-4">
+          {elections.map((election, index) => (
+            <div key={election._id} className="animate-fadeInUp" style={{ animationDelay: `${index * 100}ms` }}>
+              {renderElectionCard(election, status)}
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -216,7 +234,10 @@ export default function StudentElection() {
     return (
       <StudentMobileShell title="Available Elections" subtitle="Loading...">
         <div className="flex items-center justify-center h-64">
-          <div className="text-gray-600">Loading...</div>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-emerald-600 border-t-transparent mx-auto mb-4"></div>
+            <div className="text-gray-600 text-lg sm:text-xl">Loading...</div>
+          </div>
         </div>
       </StudentMobileShell>
     );
@@ -237,13 +258,13 @@ export default function StudentElection() {
       )}
 
       {/* Search Bar */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 lg:p-10 mb-6">
         <input
           type="text"
           placeholder="Search elections..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="input-base w-full"
+          className="input-base w-full text-base sm:text-lg px-4 py-3 sm:px-6 sm:py-4"
         />
       </div>
 
@@ -253,9 +274,9 @@ export default function StudentElection() {
 
       {/* No Elections Message */}
       {getFilteredElections().length === 0 && !loading && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
-          <div className="text-center py-8">
-            <div className="text-4xl mb-4">🗳️</div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 lg:p-10 mb-6">
+          <div className="text-center py-8 sm:py-12">
+            <div className="text-5xl sm:text-6xl mb-4 sm:mb-6">🗳️</div>
             <div className="text-gray-600 font-medium">
               {search ? "No elections found matching your search" : "No elections available yet"}
             </div>

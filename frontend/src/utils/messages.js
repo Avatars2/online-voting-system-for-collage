@@ -99,9 +99,9 @@ export const ERROR_MESSAGES = {
 
 export const WARNING_MESSAGES = {
   // Deletion Warnings
-  DELETE_DEPARTMENT_WARNING: "This will permanently delete the department and all associated data including classes, students, teachers, and HOD accounts. This action cannot be undone.",
-  DELETE_CLASS_WARNING: "This will permanently delete the class and all associated data including students and teacher accounts. This action cannot be undone.",
-  DELETE_USER_WARNING: "This will permanently delete the user account and all associated data. This action cannot be undone.",
+  DELETE_DEPARTMENT_WARNING: "This will permanently delete the department and all associated data including classes, students, teachers, and HOD accounts.",
+  DELETE_CLASS_WARNING: "This will permanently delete the class and all associated data including students and teacher accounts.",
+  DELETE_USER_WARNING: "This will permanently delete the user account and all associated data.",
   
   // Confirmation Warnings
   UNSAVED_CHANGES_WARNING: "You have unsaved changes. Are you sure you want to continue?",

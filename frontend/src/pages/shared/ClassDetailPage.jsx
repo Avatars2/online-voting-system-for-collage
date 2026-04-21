@@ -33,10 +33,24 @@ export default function UnifiedClassDetailPage() {
   const [form, setForm] = useState({ name: "", enrollmentId: "", email: "", phone: "", tempPassword: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [nameError, setNameError] = useState("");
+  const [enrollmentIdError, setEnrollmentIdError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [phoneError, setPhoneError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showEditPassword, setShowEditPassword] = useState(false);
+
+  // Auto-hide success message after 2 seconds
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage("");
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
   
   
   // Modal states
@@ -45,6 +59,11 @@ export default function UnifiedClassDetailPage() {
   const [showEnrollmentModal, setShowEnrollmentModal] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", email: "", studentId: "", phone: "" });
   const [editLoading, setEditLoading] = useState(false);
+  // Edit form validation states
+  const [editNameError, setEditNameError] = useState("");
+  const [editEmailError, setEditEmailError] = useState("");
+  const [editStudentIdError, setEditStudentIdError] = useState("");
+  const [editPhoneError, setEditPhoneError] = useState("");
 
   // Get current user role
   useEffect(() => {
@@ -181,30 +200,142 @@ export default function UnifiedClassDetailPage() {
     setShowStudentProfile(null);
     setShowEditStudent(null);
     setShowEnrollmentModal(false);
+    // Clear all validation errors
+    setNameError("");
+    setEnrollmentIdError("");
     setEmailError("");
     setPhoneError("");
+    setPasswordError("");
+    // Clear edit form validation errors
+    setEditNameError("");
+    setEditEmailError("");
+    setEditStudentIdError("");
+    setEditPhoneError("");
+  };
+
+  // Validation handlers
+  const handleNameChange = (value) => {
+    setForm({ ...form, name: value });
+    // Only allow letters and spaces
+    const nameRegex = /^[a-zA-Z\s]+$/;
+    if (value.trim() && !nameRegex.test(value)) {
+      setNameError("Name can only contain letters and spaces");
+    } else if (value.trim().length < 2) {
+      setNameError("Name must be at least 2 characters long");
+    } else {
+      setNameError("");
+    }
+  };
+
+  const handleEnrollmentIdChange = (value) => {
+    setForm({ ...form, enrollmentId: value });
+    // Allow text and numbers only
+    const enrollmentRegex = /^[a-zA-Z0-9]+$/;
+    if (value.trim() && !enrollmentRegex.test(value)) {
+      setEnrollmentIdError("Enrollment ID can only contain letters and numbers");
+    } else if (value.trim().length < 3) {
+      setEnrollmentIdError("Enrollment ID must be at least 3 characters long");
+    } else {
+      setEnrollmentIdError("");
+    }
   };
 
   const handleEmailChange = (value) => {
     setForm({ ...form, email: value });
     if (value.trim() && !validateEmail(value)) {
       setEmailError("Please enter a valid email address");
+    } else if (value.trim() && validateEmail(value)) {
+      // Check for common email providers
+      const commonProviders = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com'];
+      const domain = value.split('@')[1]?.toLowerCase();
+      if (commonProviders.includes(domain)) {
+        setEmailError(""); // Valid common provider
+      } else {
+        setEmailError(""); // Valid but uncommon domain
+      }
     } else {
       setEmailError("");
     }
   };
 
   const handlePhoneChange = (value) => {
-    setForm({ ...form, phone: value });
+    // Auto-format phone number
+    let formattedValue = value.replace(/\D/g, ''); // Remove non-digits
+    if (formattedValue.length > 10) {
+      formattedValue = formattedValue.slice(0, 10); // Limit to 10 digits
+    }
+    
+    setForm({ ...form, phone: formattedValue });
+    if (formattedValue && formattedValue.length < 10) {
+      setPhoneError("Phone number must be exactly 10 digits");
+    } else if (formattedValue && formattedValue.length === 10) {
+      // Format as XXX-XXX-XXXX
+      const formatted = `${formattedValue.slice(0, 3)}-${formattedValue.slice(3, 6)}-${formattedValue.slice(6)}`;
+      setForm({ ...form, phone: formatted });
+      setPhoneError("");
+    } else {
+      setPhoneError("");
+    }
+  };
+
+  const handlePasswordChange = (value) => {
+    setForm({ ...form, tempPassword: value });
+    if (value.trim() && value.length < 6) {
+      setPasswordError("Password must be at least 6 characters long");
+    } else if (value.trim() && !/(?=.*[a-zA-Z])(?=.*\d)/.test(value)) {
+      setPasswordError("Password must contain both letters and numbers");
+    } else {
+      setPasswordError("");
+    }
+  };
+
+  // Edit form validation handlers
+  const handleEditNameChange = (value) => {
+    setEditForm({ ...editForm, name: value });
+    // Only allow letters and spaces
+    const nameRegex = /^[a-zA-Z\s]+$/;
+    if (value.trim() && !nameRegex.test(value)) {
+      setEditNameError("Name can only contain letters and spaces");
+    } else if (value.trim().length < 2) {
+      setEditNameError("Name must be at least 2 characters long");
+    } else {
+      setEditNameError("");
+    }
+  };
+
+  const handleEditEmailChange = (value) => {
+    setEditForm({ ...editForm, email: value });
+    if (value.trim() && !validateEmail(value)) {
+      setEditEmailError("Please enter a valid email address");
+    } else {
+      setEditEmailError("");
+    }
+  };
+
+  const handleEditStudentIdChange = (value) => {
+    setEditForm({ ...editForm, studentId: value });
+    // Allow text and numbers only
+    const enrollmentRegex = /^[a-zA-Z0-9]+$/;
+    if (value.trim() && !enrollmentRegex.test(value)) {
+      setEditStudentIdError("Student ID can only contain letters and numbers");
+    } else if (value.trim().length < 3) {
+      setEditStudentIdError("Student ID must be at least 3 characters long");
+    } else {
+      setEditStudentIdError("");
+    }
+  };
+
+  const handleEditPhoneChange = (value) => {
+    setEditForm({ ...editForm, phone: value });
     if (value.trim()) {
       const phoneValidation = validatePhone(value);
       if (!phoneValidation.isValid) {
-        setPhoneError(phoneValidation.error);
+        setEditPhoneError(phoneValidation.error);
       } else {
-        setPhoneError("");
+        setEditPhoneError("");
       }
     } else {
-      setPhoneError("");
+      setEditPhoneError("");
     }
   };
 
@@ -218,12 +349,70 @@ export default function UnifiedClassDetailPage() {
       phone: student.phone || "",
     });
     setShowStudentProfile(null);
+    // Clear edit form validation errors
+    setEditNameError("");
+    setEditEmailError("");
+    setEditStudentIdError("");
+    setEditPhoneError("");
   };
 
   const handleSaveEdit = async () => {
-    if (!editForm.name.trim() || !editForm.email.trim()) {
-      setError("Name and email are required");
+    // Clear all errors
+    setError("");
+    setEditNameError("");
+    setEditEmailError("");
+    setEditStudentIdError("");
+    setEditPhoneError("");
+    
+    // Validate name
+    if (!editForm.name.trim()) {
+      setEditNameError("Name is required");
       return;
+    }
+    
+    if (editForm.name.trim().length < 2) {
+      setEditNameError("Name must be at least 2 characters long");
+      return;
+    }
+    
+    const nameRegex = /^[a-zA-Z\s]+$/;
+    if (!nameRegex.test(editForm.name.trim())) {
+      setEditNameError("Name can only contain letters and spaces");
+      return;
+    }
+    
+    // Validate email
+    if (!editForm.email.trim()) {
+      setEditEmailError("Email is required");
+      return;
+    }
+    
+    if (!validateEmail(editForm.email)) {
+      setEditEmailError("Please enter a valid email address");
+      return;
+    }
+    
+    // Validate student ID (optional but if provided, must be valid)
+    if (editForm.studentId.trim()) {
+      if (editForm.studentId.trim().length < 3) {
+        setEditStudentIdError("Student ID must be at least 3 characters long");
+        return;
+      }
+      
+      const enrollmentRegex = /^[a-zA-Z0-9]+$/;
+      if (!enrollmentRegex.test(editForm.studentId.trim())) {
+        setEditStudentIdError("Student ID can only contain letters and numbers");
+        return;
+      }
+    }
+    
+    // Validate phone (optional but if provided, must be valid)
+    if (editForm.phone.trim()) {
+      const phoneValidation = validatePhone(editForm.phone);
+      if (!phoneValidation.isValid) {
+        setEditPhoneError(phoneValidation.error);
+        return;
+      }
     }
 
     setEditLoading(true);
@@ -258,7 +447,6 @@ export default function UnifiedClassDetailPage() {
 
       setError("");
       closeModals();
-      success("Student updated successfully!");
       
       // Refresh students list
       await fetchStudents();
@@ -272,8 +460,8 @@ export default function UnifiedClassDetailPage() {
   };
 
   // Delete student handler
-  const handleDeleteStudent = async (studentId) => {
-    if (!window.confirm("Are you sure you want to delete this student? This action cannot be undone.")) {
+  const handleDeleteStudent = async (studentId, studentName) => {
+    if (!window.confirm(`Are you sure you want to delete ${studentName}?`)) {
       return;
     }
 
@@ -297,7 +485,7 @@ export default function UnifiedClassDetailPage() {
 
       setError("");
       closeModals();
-      success("Student deleted successfully!");
+      setSuccessMessage("Student deleted successfully!");
       
       // Refresh students list
       await fetchStudents();
@@ -305,37 +493,63 @@ export default function UnifiedClassDetailPage() {
       console.error("Failed to delete student:", err);
       const errorMessage = err.response?.data?.error || err.message || "Failed to delete student";
       setError(errorMessage);
-      showError(errorMessage);
     }
   };
 
 
   // Enroll student handler
   const handleEnroll = async () => {
-    // Reset error
+    // Reset all errors
     setError("");
+    setNameError("");
+    setEnrollmentIdError("");
     setEmailError("");
     setPhoneError("");
+    setPasswordError("");
     
-    // Validate name first
+    // Validate name
     if (!form.name.trim()) {
-      setError("Name is required");
+      setNameError("Full name is required");
       return;
+    }
+    
+    if (form.name.trim().length < 2) {
+      setNameError("Name must be at least 2 characters long");
+      return;
+    }
+    
+    const nameRegex = /^[a-zA-Z\s]+$/;
+    if (!nameRegex.test(form.name.trim())) {
+      setNameError("Name can only contain letters and spaces");
+      return;
+    }
+    
+    // Validate enrollment ID (optional but if provided, must be valid)
+    if (form.enrollmentId.trim()) {
+      if (form.enrollmentId.trim().length < 3) {
+        setEnrollmentIdError("Enrollment ID must be at least 3 characters long");
+        return;
+      }
+      
+      const enrollmentRegex = /^[a-zA-Z0-9]+$/;
+      if (!enrollmentRegex.test(form.enrollmentId.trim())) {
+        setEnrollmentIdError("Enrollment ID can only contain letters and numbers");
+        return;
+      }
     }
     
     // Validate email
     if (!form.email.trim()) {
-      setError("Email is required");
+      setEmailError("Email is required");
       return;
     }
     
-    // Validate email format
     if (!validateEmail(form.email)) {
       setEmailError("Please enter a valid email address");
       return;
     }
     
-    // Validate phone (if provided)
+    // Validate phone (optional but if provided, must be valid)
     if (form.phone.trim()) {
       const phoneValidation = validatePhone(form.phone);
       if (!phoneValidation.isValid) {
@@ -346,12 +560,17 @@ export default function UnifiedClassDetailPage() {
     
     // Validate password
     if (!form.tempPassword) {
-      setError("Temporary password is required");
+      setPasswordError("Password is required");
       return;
     }
     
     if (form.tempPassword.length < 6) {
-      setError("Temp password must be at least 6 characters");
+      setPasswordError("Password must be at least 6 characters long");
+      return;
+    }
+    
+    if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(form.tempPassword)) {
+      setPasswordError("Password must contain both letters and numbers");
       return;
     }
     
@@ -376,8 +595,8 @@ export default function UnifiedClassDetailPage() {
 
     apiCall
       .then(() => {
+        setSuccessMessage("Student registered successfully!");
         setForm({ name: "", enrollmentId: "", email: "", phone: "", tempPassword: "" });
-        success("Student enrolled successfully!");
         fetchStudents();
         // Close modal and stay on current page
         setShowEnrollmentModal(false);
@@ -453,7 +672,7 @@ export default function UnifiedClassDetailPage() {
             
             {roleConfig.canDelete && (
               <button
-                onClick={() => handleDeleteStudent(student._id)}
+                onClick={() => handleDeleteStudent(student._id, student.name)}
                 className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors whitespace-nowrap"
               >
                 🗑️
@@ -484,12 +703,13 @@ export default function UnifiedClassDetailPage() {
 
           <h2 className="text-xl font-bold text-gray-900 mb-4">Register New Student</h2>
           
-          {error && (
-            <div className="p-3 bg-red-50 text-red-700 rounded-xl text-sm border border-red-200 mb-4">
-              {error}
+          {/* Success Message in Form */}
+          {successMessage && (
+            <div className="p-3 bg-green-50 text-green-700 rounded-xl text-sm border border-green-200 mb-4">
+              ✓ {successMessage}
             </div>
           )}
-
+          
           <div className="space-y-4">
             {/* Name */}
             <div>
@@ -499,10 +719,15 @@ export default function UnifiedClassDetailPage() {
               <input
                 type="text"
                 value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onChange={(e) => handleNameChange(e.target.value)}
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  nameError ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
+                }`}
                 placeholder="Enter student's full name"
               />
+              {nameError && (
+                <p className="mt-1 text-xs text-red-600">{nameError}</p>
+              )}
             </div>
 
             {/* Enrollment ID */}
@@ -513,10 +738,15 @@ export default function UnifiedClassDetailPage() {
               <input
                 type="text"
                 value={form.enrollmentId}
-                onChange={(e) => setForm({ ...form, enrollmentId: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onChange={(e) => handleEnrollmentIdChange(e.target.value)}
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  enrollmentIdError ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
+                }`}
                 placeholder="e.g. 2026CS101"
               />
+              {enrollmentIdError && (
+                <p className="mt-1 text-xs text-red-600">{enrollmentIdError}</p>
+              )}
             </div>
 
             {/* Email */}
@@ -566,8 +796,10 @@ export default function UnifiedClassDetailPage() {
                 <input
                   type={showPassword ? "text" : "password"}
                   value={form.tempPassword}
-                  onChange={(e) => setForm({ ...form, tempPassword: e.target.value })}
-                  className="w-full p-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onChange={(e) => handlePasswordChange(e.target.value)}
+                  className={`w-full p-3 pr-12 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    passwordError ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
+                  }`}
                   placeholder="Enter password"
                 />
                 <button
@@ -587,13 +819,16 @@ export default function UnifiedClassDetailPage() {
                   )}
                 </button>
               </div>
+              {passwordError && (
+                <p className="mt-1 text-xs text-red-600">{passwordError}</p>
+              )}
             </div>
 
             {/* Action Buttons */}
             <div className="pt-4">
               <button
                 onClick={handleEnroll}
-                disabled={loading || !form.name.trim() || !form.email.trim() || !form.tempPassword}
+                disabled={loading || !form.name.trim() || !form.email.trim() || !form.tempPassword || nameError || enrollmentIdError || emailError || phoneError || passwordError}
                 className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:from-gray-400 disabled:to-gray-500"
               >
                 {loading ? (
@@ -684,7 +919,7 @@ export default function UnifiedClassDetailPage() {
             <div className="flex gap-2">
               {roleConfig.canDelete && (
                 <button
-                  onClick={() => handleDeleteStudent(showStudentProfile._id)}
+                  onClick={() => handleDeleteStudent(showStudentProfile._id, showStudentProfile.name)}
                   className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                 >
                   Delete
@@ -723,10 +958,15 @@ export default function UnifiedClassDetailPage() {
               <input
                 type="text"
                 value={editForm.name}
-                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                onChange={(e) => handleEditNameChange(e.target.value)}
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${
+                  editNameError ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
+                }`}
                 placeholder="Student name"
               />
+              {editNameError && (
+                <p className="mt-1 text-xs text-red-600">{editNameError}</p>
+              )}
             </div>
 
             <div>
@@ -734,10 +974,15 @@ export default function UnifiedClassDetailPage() {
               <input
                 type="email"
                 value={editForm.email}
-                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                onChange={(e) => handleEditEmailChange(e.target.value)}
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${
+                  editEmailError ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
+                }`}
                 placeholder="Student email"
               />
+              {editEmailError && (
+                <p className="mt-1 text-xs text-red-600">{editEmailError}</p>
+              )}
             </div>
 
             <div>
@@ -745,10 +990,15 @@ export default function UnifiedClassDetailPage() {
               <input
                 type="text"
                 value={editForm.studentId}
-                onChange={(e) => setEditForm({ ...editForm, studentId: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                onChange={(e) => handleEditStudentIdChange(e.target.value)}
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${
+                  editStudentIdError ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
+                }`}
                 placeholder="Student ID"
               />
+              {editStudentIdError && (
+                <p className="mt-1 text-xs text-red-600">{editStudentIdError}</p>
+              )}
             </div>
 
             <div>
@@ -756,17 +1006,22 @@ export default function UnifiedClassDetailPage() {
               <input
                 type="tel"
                 value={editForm.phone}
-                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                onChange={(e) => handleEditPhoneChange(e.target.value)}
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${
+                  editPhoneError ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
+                }`}
                 placeholder="Phone number"
               />
+              {editPhoneError && (
+                <p className="mt-1 text-xs text-red-600">{editPhoneError}</p>
+              )}
             </div>
           </div>
 
           <div className="mt-6">
             <button
               onClick={handleSaveEdit}
-              disabled={editLoading}
+              disabled={editLoading || !editForm.name.trim() || !editForm.email.trim() || editNameError || editEmailError || editStudentIdError || editPhoneError}
               className="w-full px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50"
             >
               {editLoading ? "Saving..." : "Save Changes"}
@@ -787,12 +1042,18 @@ export default function UnifiedClassDetailPage() {
       backTo={roleConfig.backTo}
     >
       {error && (
-        <div className="p-3 bg-red-50 text-red-700 rounded-xl text-sm border border-red-200">
+        <div className="p-3 bg-red-50 text-red-700 rounded-xl text-sm border border-red-200 mb-4">
           {error}
         </div>
       )}
 
-      {/* Register New Student Button */}
+      {successMessage && (
+        <div className="p-3 bg-green-50 text-green-700 rounded-xl text-sm border border-green-200 mb-4">
+          ✓ {successMessage}
+        </div>
+      )}
+
+      {/* Students List */}
       {roleConfig.canEnroll && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <button

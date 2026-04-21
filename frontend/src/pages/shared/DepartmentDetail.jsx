@@ -32,7 +32,20 @@ export default function DepartmentDetail() {
   const [updateLoading, setUpdateLoading] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [phoneError, setPhoneError] = useState("");
+  const [teacherNameError, setTeacherNameError] = useState("");
+  const [teacherPasswordError, setTeacherPasswordError] = useState("");
   const [showTeacherPassword, setShowTeacherPassword] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  // Auto-hide success message after 2 seconds
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage("");
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
 
   useEffect(() => {
     // Get user role from localStorage
@@ -121,6 +134,8 @@ export default function DepartmentDetail() {
     setError("");
     setEmailError("");
     setPhoneError("");
+    setTeacherNameError("");
+    setTeacherPasswordError("");
 
     setUpdateLoading(true);
     
@@ -133,6 +148,22 @@ export default function DepartmentDetail() {
     if (removeTeacher) {
       payload.removeTeacher = true;
     } else if (editTeacherEmail.trim()) {
+      // Validate teacher name (if provided)
+      if (editTeacherName.trim()) {
+        if (editTeacherName.trim().length < 2) {
+          setTeacherNameError("Teacher name must be at least 2 characters long");
+          setUpdateLoading(false);
+          return;
+        }
+        
+        const nameRegex = /^[a-zA-Z\s]+$/;
+        if (!nameRegex.test(editTeacherName.trim())) {
+          setTeacherNameError("Teacher name can only contain letters and spaces");
+          setUpdateLoading(false);
+          return;
+        }
+      }
+      
       // Validate email
       if (!validateEmail(editTeacherEmail)) {
         setEmailError("Please enter a valid email address");
@@ -155,8 +186,21 @@ export default function DepartmentDetail() {
       payload.teacherPassword = editTeacherPassword.trim();
       payload.teacherPhone = editTeacherPhone.trim() || undefined;
       
+      // Validate password
       if (!editTeacherPassword.trim()) {
-        setError("Teacher password is required when registering a new teacher");
+        setTeacherPasswordError("Password is required");
+        setUpdateLoading(false);
+        return;
+      }
+      
+      if (editTeacherPassword.length < 6) {
+        setTeacherPasswordError("Password must be at least 6 characters long");
+        setUpdateLoading(false);
+        return;
+      }
+      
+      if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(editTeacherPassword)) {
+        setTeacherPasswordError("Password must contain both letters and numbers");
         setUpdateLoading(false);
         return;
       }
@@ -208,11 +252,14 @@ export default function DepartmentDetail() {
         }
         
         if (removeTeacher) {
-          success(`Teacher removed from "${className}" class!`);
+          // Teacher removed successfully
+          setSuccessMessage("Teacher removed successfully!");
         } else if (editTeacherEmail.trim()) {
-          success(`Class "${className}" updated with new teacher!`);
+          // New teacher added successfully
+          setSuccessMessage("Teacher added successfully!");
         } else {
-          success(`Class "${className}" updated successfully!`);
+          // Class updated successfully
+          setSuccessMessage("Class updated successfully!");
         }
       })
       .catch((err) => {
@@ -236,7 +283,6 @@ export default function DepartmentDetail() {
         }
         
         setError(errorMessage);
-        showError(errorMessage);
       })
       .finally(() => setUpdateLoading(false));
   };
@@ -253,7 +299,33 @@ export default function DepartmentDetail() {
     setRemoveTeacher(false);
     setEmailError("");
     setPhoneError("");
+    setTeacherNameError("");
+    setTeacherPasswordError("");
     setError("");
+  };
+
+  const handleTeacherNameChange = (value) => {
+    setEditTeacherName(value);
+    // Only allow letters and spaces
+    const nameRegex = /^[a-zA-Z\s]+$/;
+    if (value.trim() && !nameRegex.test(value)) {
+      setTeacherNameError("Teacher name can only contain letters and spaces");
+    } else if (value.trim().length < 2) {
+      setTeacherNameError("Teacher name must be at least 2 characters long");
+    } else {
+      setTeacherNameError("");
+    }
+  };
+
+  const handleTeacherPasswordChange = (value) => {
+    setEditTeacherPassword(value);
+    if (value.trim() && value.length < 6) {
+      setTeacherPasswordError("Password must be at least 6 characters long");
+    } else if (value.trim() && !/(?=.*[a-zA-Z])(?=.*\d)/.test(value)) {
+      setTeacherPasswordError("Password must contain both letters and numbers");
+    } else {
+      setTeacherPasswordError("");
+    }
   };
 
   const handleEmailChange = (value) => {
@@ -280,7 +352,7 @@ export default function DepartmentDetail() {
   };
 
   const handleDeleteClass = async (classId, className) => {
-    if (!window.confirm(`Are you sure you want to delete class "${className}"?\n\nThis action will PERMANENTLY delete:\n• All students in this class\n• The class teacher account\n• All associated data and election candidates\n\nDeleted accounts will NOT be able to login again.`)) {
+    if (!window.confirm(`Are you sure you want to delete class "${className}"?\n\nThis action will PERMANENTLY delete:\n• All students in this class\n• The class teacher account`)) {
       return;
     }
 
@@ -291,18 +363,8 @@ export default function DepartmentDetail() {
       const response = await apiCall;
       console.log(`Class ${className} deleted successfully`, response.data);
       
-      // Show detailed deletion summary
-      const data = response.data;
-      let message = `Class "${className}" deleted successfully!`;
-      
-      if (data.deletedStudents > 0 || data.deletedTeacher > 0) {
-        message += `\n\nDeleted:\n`;
-        if (data.deletedStudents > 0) message += `• ${data.deletedStudents} students\n`;
-        if (data.deletedTeacher > 0) message += `• ${data.deletedTeacher} teacher(s)\n`;
-        message += `\nAll accounts have been permanently removed.`;
-      }
-      
-      success(message);
+      // Class deleted successfully
+      setSuccessMessage("Class deleted successfully!");
       
       // Refresh the classes list
       if (userRole === "admin") {
@@ -331,7 +393,6 @@ export default function DepartmentDetail() {
         errorMessage = err.message;
       }
       setError(errorMessage);
-      showError(errorMessage);
     } finally {
       setDeleteLoading(false);
     }
@@ -357,10 +418,9 @@ export default function DepartmentDetail() {
     apiCall
       .then((response) => {
         console.log("Class created successfully:", response);
+        setSuccessMessage("Class created successfully!");
         setClassName("");
         setYear("");
-        
-        success("Class created successfully!");
         
         // Force refresh after a short delay to ensure backend sync
         setTimeout(() => {
@@ -395,7 +455,6 @@ export default function DepartmentDetail() {
           errorMessage = err.message;
         }
         setError(errorMessage);
-        showError(errorMessage);
       })
       .finally(() => setLoading(false));
   };
@@ -410,8 +469,14 @@ export default function DepartmentDetail() {
       backTo={userRole === "admin" ? "/admin/departments" : "/hod/dashboard"}
     >
       {error && (
-        <div className="p-3 bg-red-50 text-red-700 rounded-xl text-sm border border-red-200">
+        <div className="p-3 bg-red-50 text-red-700 rounded-xl text-sm border border-red-200 mb-4">
           {error}
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="p-3 bg-green-50 text-green-700 rounded-xl text-sm border border-green-200 mb-4">
+          ✓ {successMessage}
         </div>
       )}
 
@@ -458,12 +523,6 @@ export default function DepartmentDetail() {
             </button>
 
             <h2 className="text-xl font-bold text-gray-900 mb-4">Edit Class</h2>
-            
-            {error && (
-              <div className="p-3 bg-red-50 text-red-700 rounded-xl text-sm border border-red-200 mb-4">
-                {error}
-              </div>
-            )}
 
             <div className="space-y-4">
               <div>
@@ -521,6 +580,13 @@ export default function DepartmentDetail() {
                         id="removeTeacher"
                         checked={removeTeacher}
                         onChange={(e) => {
+                          if (e.target.checked) {
+                            // Show confirmation popup before removing teacher
+                            const teacherName = editingClass?.classTeacher?.name || "the current teacher";
+                            if (!window.confirm(`Are you sure you want to remove ${teacherName} from this class?`)) {
+                              return; // Don't check the box if user cancels
+                            }
+                          }
                           setRemoveTeacher(e.target.checked);
                           if (e.target.checked) {
                             setEditTeacherName("");
@@ -538,9 +604,12 @@ export default function DepartmentDetail() {
                     </div>
                   )}
                   
-                  {!removeTeacher && (
+                  {/* Show teacher registration form only if NO teacher exists OR if "Remove Teacher" is checked */}
+                  {(!editingClass?.classTeacher || removeTeacher) && (
                     <>
-                      <p className="text-xs text-gray-500 font-medium">Register New Teacher (Optional):</p>
+                      <p className="text-xs text-gray-500 font-medium">
+                        {removeTeacher ? "Register New Teacher (after removing current):" : "Register New Teacher:"}
+                      </p>
                       
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -549,11 +618,14 @@ export default function DepartmentDetail() {
                         <input
                           type="text"
                           value={editTeacherName}
-                          onChange={(e) => setEditTeacherName(e.target.value)}
-                          className="input-base"
+                          onChange={(e) => handleTeacherNameChange(e.target.value)}
+                          className={`input-base ${teacherNameError ? 'border-red-300 focus:border-red-500' : ''}`}
                           disabled={updateLoading}
                           placeholder="Teacher Full Name"
                         />
+                        {teacherNameError && (
+                          <p className="mt-1 text-xs text-red-600">{teacherNameError}</p>
+                        )}
                       </div>
 
                       <div>
@@ -581,8 +653,8 @@ export default function DepartmentDetail() {
                           <input
                             type={showTeacherPassword ? "text" : "password"}
                             value={editTeacherPassword}
-                            onChange={(e) => setEditTeacherPassword(e.target.value)}
-                            className="input-base pr-12"
+                            onChange={(e) => handleTeacherPasswordChange(e.target.value)}
+                            className={`input-base pr-12 ${teacherPasswordError ? 'border-red-300 focus:border-red-500' : ''}`}
                             disabled={updateLoading}
                             placeholder="Enter password"
                           />
@@ -604,6 +676,9 @@ export default function DepartmentDetail() {
                             )}
                           </button>
                         </div>
+                        {teacherPasswordError && (
+                          <p className="mt-1 text-xs text-red-600">{teacherPasswordError}</p>
+                        )}
                       </div>
 
                       <div>

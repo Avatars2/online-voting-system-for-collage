@@ -1,29 +1,30 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const ADMIN_MENU = [
   { label: "Dashboard", path: "/admin/dashboard", icon: "🏠" },
   { label: "Profile", path: "/admin/profile", icon: "👤" },
-  { label: "Reset Password", path: "/admin/reset-password", icon: "🔒" },
+  { label: "Change Password", path: "/admin/reset-password", icon: "🔒" },
   { label: "Notice", path: "/admin/notices", icon: "🔔" },
-  { label: "Department", path: "/admin/departments", icon: "🏢" },
-  { label: "Election", path: "/admin/elections", icon: "🗳️" },
-  { label: "Result", path: "/admin/results", icon: "📊" },
+  { label: "Departments", path: "/admin/departments", icon: "🏢" },
+  { label: "Elections", path: "/admin/elections", icon: "🗳️" },
+  { label: "Results", path: "/admin/results", icon: "📊" },
 ];
 
 const HOD_MENU = [
   { label: "Dashboard", path: "/hod/dashboard", icon: "🏠" },
   { label: "Profile", path: "/hod/profile", icon: "👤" },
-  { label: "Reset Password", path: "/hod/reset-password", icon: "🔒" },
+  { label: "Change Password", path: "/hod/reset-password", icon: "🔒" },
   { label: "Notice", path: "/hod/notices", icon: "🔔" },
-  { label: "Election", path: "/hod/elections", icon: "🗳️" },
-  { label: "Result", path: "/hod/results", icon: "📊" },
+  { label: "Students", path: "/hod/students", icon: "👥" },
+  { label: "Elections", path: "/hod/elections", icon: "🗳️" },
+  { label: "Results", path: "/hod/results", icon: "📊" },
 ];
 
 const TEACHER_MENU = [
   { label: "Dashboard", path: "/teacher/dashboard", icon: "🏠" },
   { label: "Profile", path: "/teacher/profile", icon: "👤" },
-  { label: "Reset Password", path: "/teacher/reset-password", icon: "🔒" },
+  { label: "Change Password", path: "/teacher/reset-password", icon: "🔒" },
   { label: "Students", path: "/teacher/students", icon: "👥" },
   { label: "Elections", path: "/teacher/elections", icon: "🗳️" },
   { label: "Results", path: "/teacher/results", icon: "📊" },
@@ -39,9 +40,31 @@ export default function AdminMobileShell({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024); // Initialize based on screen size
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024); // Desktop detection
 
   const activePath = useMemo(() => location.pathname, [location.pathname]);
+
+  // Detect screen size and set desktop state
+  useEffect(() => {
+    const checkScreenSize = () => {
+      const desktop = window.innerWidth >= 1024; // lg: breakpoint
+      setIsDesktop(desktop);
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  // Set sidebar state based on screen size
+  useEffect(() => {
+    if (isDesktop && !sidebarOpen) {
+      setSidebarOpen(true);
+    } else if (!isDesktop && sidebarOpen) {
+      setSidebarOpen(false);
+    }
+  }, [isDesktop, sidebarOpen]);
   
   // Determine user role and menu
   const userRole = useMemo(() => {
@@ -82,45 +105,146 @@ export default function AdminMobileShell({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-400 via-purple-500 to-indigo-600 p-3 sm:p-4 flex justify-center">
-      <div className="w-full max-w-lg">
-        <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl overflow-hidden border border-white/30 flex flex-col h-[calc(100vh-1.5rem)] sm:h-[calc(100vh-2rem)]">
-          <div className={`${headerColor} px-4 py-4`}>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                {backTo ? (
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      console.log("Back button clicked, navigating to:", backTo);
-                      try {
-                        navigate(backTo);
-                      } catch (error) {
-                        console.error("Navigation error:", error);
-                      }
-                    }}
-                    className="text-white/95 font-semibold"
-                    aria-label="Back"
-                  >
-                    ←
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setMenuOpen(true)}
-                    className="text-white/95 font-semibold"
-                    aria-label="Menu"
-                  >
-                    ☰
-                  </button>
+    <div className="min-h-screen bg-gradient-to-br from-blue-400 via-purple-500 to-indigo-600 flex">
+      {/* Sidebar - Left Side Navigation */}
+      <div className={`w-64 transition-all duration-300 bg-white/95 backdrop-blur shadow-2xl border-r border-white/30 ${isDesktop || sidebarOpen ? 'flex' : 'hidden'} flex-col`}>
+        {/* Sidebar Header */}
+        <div className={`${headerColor} p-6`}>
+          <div className="text-center">
+            <div className="w-16 h-16 rounded-full bg-white/20 ring-2 ring-white/40 overflow-hidden flex items-center justify-center mx-auto mb-3">
+              <span className="text-white text-2xl font-bold">{userInitial}</span>
+            </div>
+            <h2 className="text-white font-bold text-lg">{menuTitle}</h2>
+          </div>
+        </div>
+
+        {/* Navigation Menu */}
+        <div className="flex-1 p-4 space-y-2">
+          {menuItems.map((item) => {
+            const isActive = activePath === item.path;
+            return (
+              <button
+                key={item.path}
+                onClick={() => navigate(item.path)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 relative overflow-hidden group ${
+                  isActive 
+                    ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg scale-[1.02]" 
+                    : "hover:bg-gray-100 text-gray-800 hover:scale-[1.01] hover:shadow-md"
+                }`}
+              >
+                {/* Active indicator */}
+                {isActive && (
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-white/80 rounded-r-full"></div>
                 )}
-                <div>
-                  <h1 className="text-xl font-bold text-white leading-tight">{title}</h1>
-                  {subtitle ? <p className="text-white/80 text-sm">{subtitle}</p> : null}
+                
+                {/* Icon container with hover effect */}
+                <div className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 ${
+                  isActive 
+                    ? "bg-white/20" 
+                    : "bg-gray-100 group-hover:bg-gray-200"
+                }`}>
+                  <span className={`text-xl transition-transform duration-200 group-hover:scale-110 ${
+                    isActive ? "text-white" : "text-gray-700"
+                  }`}>{item.icon}</span>
                 </div>
+                
+                {/* Text with hover effect */}
+                <div className="flex-1 min-w-0">
+                  <span className={`font-medium transition-all duration-200 ${
+                    isActive ? "text-white" : "text-gray-800 group-hover:text-gray-900"
+                  }`}>{item.label}</span>
+                  
+                  {/* Subtle underline on hover for non-active items */}
+                  {!isActive && (
+                    <div className="h-0.5 bg-gray-300 scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left rounded-full"></div>
+                  )}
+                </div>
+                
+                {/* Arrow indicator for active item */}
+                {isActive && (
+                  <div className="text-white/80">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Logout Button */}
+        <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left hover:bg-red-50 text-red-700 transition-all duration-200 relative overflow-hidden group hover:scale-[1.01] hover:shadow-md"
+          >
+            {/* Icon container with hover effect */}
+            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 group-hover:bg-red-200 transition-all duration-200">
+              <svg className="w-5 h-5 text-red-600 transition-transform duration-200 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            </div>
+            
+            {/* Text with hover effect */}
+            <div className="flex-1 min-w-0">
+              <span className="font-medium text-red-700 group-hover:text-red-800 transition-colors duration-200">Logout</span>
+              
+              {/* Subtle underline on hover */}
+              <div className="h-0.5 bg-red-300 scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left rounded-full"></div>
+            </div>
+            
+            {/* Arrow indicator on hover */}
+            <div className="text-red-600 group-hover:translate-x-1 transition-transform duration-200">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Menu Toggle */}
+      {!isDesktop && (
+        <div className="fixed top-4 left-4 z-50">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="w-12 h-12 bg-white/95 backdrop-blur rounded-full shadow-lg flex items-center justify-center"
+          >
+            <span className="text-2xl">&equiv;</span>
+          </button>
+        </div>
+      )}
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-h-screen">
+        {/* Header */}
+        <div className={`${headerColor} px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6`}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              {backTo && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate(backTo);
+                  }}
+                  className="text-white/95 font-semibold"
+                  aria-label="Back"
+                >
+                  &larr;
+                </button>
+              )}
+              <div>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white leading-tight">{title}</h1>
+                {subtitle ? <p className="text-white/80 text-sm sm:text-base lg:text-lg">{subtitle}</p> : null}
               </div>
+            </div>
+            
+            {/* Profile Button - Desktop Only */}
+            <div className="hidden lg:block">
               <button
                 onClick={() => navigate(profilePath)}
-                className="w-10 h-10 rounded-full bg-white/20 ring-2 ring-white/40 overflow-hidden flex items-center justify-center"
+                className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-full bg-white/20 ring-2 ring-white/40 overflow-hidden flex items-center justify-center"
                 aria-label="Profile"
                 title="Profile"
               >
@@ -128,63 +252,122 @@ export default function AdminMobileShell({
               </button>
             </div>
           </div>
+        </div>
 
-          {menuOpen && (
-            <div className="fixed inset-0 z-50">
-              <div
-                className="absolute inset-0 bg-black/40"
-                onClick={() => setMenuOpen(false)}
-              />
-              <div className="absolute left-4 right-4 top-16 mx-auto max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border">
-                <div className="px-4 py-3 border-b flex items-center justify-between">
-                  <div className="font-bold text-gray-900">{menuTitle}</div>
-                  <button
-                    onClick={() => setMenuOpen(false)}
-                    className="text-gray-700"
-                    aria-label="Close"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <div className="p-2">
-                  {menuItems.map((item) => {
-                    const isActive = activePath === item.path;
-                    return (
-                      <button
-                        key={item.path}
-                        onClick={() => {
-                          setMenuOpen(false);
-                          navigate(item.path);
-                        }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition ${
-                          isActive ? "bg-blue-50 text-blue-700" : "hover:bg-gray-50 text-gray-800"
-                        }`}
-                      >
-                        <span className="text-lg">{item.icon}</span>
-                        <span className="font-medium">{item.label}</span>
-                      </button>
-                    );
-                  })}
-                  <div className="my-2 h-px bg-gray-200" />
-                  <button
-                    onClick={() => {
-                      setMenuOpen(false);
-                      handleLogout();
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left hover:bg-red-50 text-red-700"
-                  >
-                    <span className="text-lg">🚪</span>
-                    <span className="font-medium">Logout</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="p-4 space-y-4 flex-1 overflow-auto">{children}</div>
+        {/* Content */}
+        <div className="p-4 sm:p-6 lg:p-8 xl:p-12 2xl:p-16 space-y-4 sm:space-y-6 lg:space-y-8 flex-1 overflow-auto w-full">
+          {children}
         </div>
       </div>
+
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && !isDesktop && (
+        <div className="fixed inset-0 z-40">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setSidebarOpen(false)}
+          />
+          <div className="absolute left-0 top-0 h-full w-64 bg-white shadow-2xl">
+            <div className={`${headerColor} p-6`}>
+              <div className="text-center">
+                <div className="w-16 h-16 rounded-full bg-white/20 ring-2 ring-white/40 overflow-hidden flex items-center justify-center mx-auto mb-3">
+                  <span className="text-white text-2xl font-bold">{userInitial}</span>
+                </div>
+                <h2 className="text-white font-bold text-lg">{menuTitle}</h2>
+              </div>
+            </div>
+
+            <div className="flex-1 p-4 space-y-2">
+              {menuItems.map((item) => {
+                const isActive = activePath === item.path;
+                return (
+                  <button
+                    key={item.path}
+                    onClick={() => {
+                      navigate(item.path);
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 relative overflow-hidden group ${
+                      isActive 
+                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg scale-[1.02]" 
+                        : "hover:bg-gray-100 text-gray-800 hover:scale-[1.01] hover:shadow-md"
+                    }`}
+                  >
+                    {/* Active indicator */}
+                    {isActive && (
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-white/80 rounded-r-full"></div>
+                    )}
+                    
+                    {/* Icon container with hover effect */}
+                    <div className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 ${
+                      isActive 
+                        ? "bg-white/20" 
+                        : "bg-gray-100 group-hover:bg-gray-200"
+                    }`}>
+                      <span className={`text-xl transition-transform duration-200 group-hover:scale-110 ${
+                        isActive ? "text-white" : "text-gray-700"
+                      }`}>{item.icon}</span>
+                    </div>
+                    
+                    {/* Text with hover effect */}
+                    <div className="flex-1 min-w-0">
+                      <span className={`font-medium transition-all duration-200 ${
+                        isActive ? "text-white" : "text-gray-800 group-hover:text-gray-900"
+                      }`}>{item.label}</span>
+                      
+                      {/* Subtle underline on hover for non-active items */}
+                      {!isActive && (
+                        <div className="h-0.5 bg-gray-300 scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left rounded-full"></div>
+                      )}
+                    </div>
+                    
+                    {/* Arrow indicator for active item */}
+                    {isActive && (
+                      <div className="text-white/80">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="p-4 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  handleLogout();
+                  setSidebarOpen(false);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left hover:bg-red-50 text-red-700 transition-all duration-200 relative overflow-hidden group hover:scale-[1.01] hover:shadow-md"
+              >
+                {/* Icon container with hover effect */}
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 group-hover:bg-red-200 transition-all duration-200">
+                  <svg className="w-5 h-5 text-red-600 transition-transform duration-200 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+                </div>
+                
+                {/* Text with hover effect */}
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium text-red-700 group-hover:text-red-800 transition-colors duration-200">Logout</span>
+                  
+                  {/* Subtle underline on hover */}
+                  <div className="h-0.5 bg-red-300 scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left rounded-full"></div>
+                </div>
+                
+                {/* Arrow indicator on hover */}
+                <div className="text-red-600 group-hover:translate-x-1 transition-transform duration-200">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-

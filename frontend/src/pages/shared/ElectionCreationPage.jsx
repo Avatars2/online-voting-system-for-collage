@@ -629,26 +629,26 @@ export default function UnifiedElectionCreationPage() {
 
       {userRole !== "student" && (
 
-        <div className="bg-white p-4 rounded-xl border">
+        <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-xl border mb-6">
 
-          <div className="font-bold mb-3">Create Election</div>
+          <div className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Create Election</div>
 
           <input
             type="text"
             placeholder="Title"
             value={formData.title}
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            className="input-base"
+            className="input-base text-base sm:text-lg px-4 py-3 sm:px-6 sm:py-4"
           />
 
           <textarea
             placeholder="Description"
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            className="input-base mt-2"
+            className="input-base mt-3 h-32 sm:h-40 resize-none text-base sm:text-lg px-4 py-3 sm:px-6 sm:py-4"
           />
 
-          <div className="grid grid-cols-2 gap-2 mt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mt-4">
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Start Date *</label>
@@ -739,32 +739,43 @@ export default function UnifiedElectionCreationPage() {
 
       {/* ACTIVE */}
 
-      <div className="bg-white rounded-xl border p-4 mt-4">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 lg:p-10 xl:p-12 mt-6 animate-fadeIn">
 
-        <div className="font-bold mb-3">
-          Active Elections ({active.length})
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <div className="text-lg sm:text-xl font-bold text-gray-900">
+            Active Elections
+          </div>
+          <div className="text-xs font-semibold text-green-500">
+            {active.length} ACTIVE
+          </div>
         </div>
 
         {active.length === 0 && (
-
-          <div className="text-gray-500 text-sm">
-            No active elections
+          <div className="text-center py-8 sm:py-12">
+            <div className="text-4xl sm:text-5xl mb-4 text-green-500">?</div>
+            <div className="text-gray-500 text-base sm:text-lg font-medium">
+              No active elections
+            </div>
+            <div className="text-sm text-gray-400 mt-2">
+              Check back later for active voting opportunities
+            </div>
           </div>
-
         )}
 
-        {Array.isArray(active) && active.map((election) => (
-          <div
-            key={election._id}
-            className={`border rounded-xl p-3 mb-3 bg-green-50 border-green-200 cursor-pointer hover:shadow-md transition-shadow ${
-              userRole === "student" ? "hover:bg-green-100" : ""
-            }`}
-            onClick={() => {
-              if (userRole === "student") {
-                navigate(`/student/election-detail?electionId=${election._id}`);
-              }
-            }}
-          >
+        <div className="space-y-3 sm:space-y-4">
+          {Array.isArray(active) && active.map((election, index) => (
+            <div
+              key={election._id}
+              className={`border rounded-xl p-4 sm:p-6 bg-green-50 border-green-200 cursor-pointer transition-all duration-300 hover:scale-[1.01] hover:shadow-md animate-fadeInUp ${
+                userRole === "student" ? "hover:bg-green-100" : ""
+              }`}
+              style={{ animationDelay: `${index * 100}ms` }}
+              onClick={() => {
+                if (userRole === "student") {
+                  navigate(`/student/election-detail?electionId=${election._id}`);
+                }
+              }}
+            >
 
             <div className="flex justify-between">
 
@@ -979,6 +990,7 @@ export default function UnifiedElectionCreationPage() {
 
           </div>
         ))}
+        </div>
 
       </div>
 

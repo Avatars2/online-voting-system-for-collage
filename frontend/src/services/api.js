@@ -187,7 +187,8 @@ export const studentAPI = {
   elections: () => api.get("/student/elections"),
   getElectionCandidates: (electionId) => api.get(`/student/elections/${electionId}/candidates`),
   vote: (electionId, candidateId) => api.post(`/student/vote/${electionId}/${candidateId}`),
-  notices: () => api.get("/student/notices")
+  notices: () => api.get("/student/notices"),
+  markNoticeAsRead: (noticeId) => api.post(`/student/notices/${noticeId}/read`)
 };
 
 export const teacherAPI = {

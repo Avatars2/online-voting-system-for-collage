@@ -27,6 +27,7 @@ export default function UnifiedStudentRegistrationPage() {
   const [user, setUser] = useState(null);
   const [department, setDepartment] = useState(null);
   const [emailValidation, setEmailValidation] = useState({ isValid: false, message: "" });
+  const [successMessage, setSuccessMessage] = useState("");
 
   // Get current user role
   useEffect(() => {
@@ -180,12 +181,10 @@ export default function UnifiedStudentRegistrationPage() {
     if (!form.email.trim()) {
       newErrors.email = "Email is required";
     } else {
-      // Use the same validation logic as real-time validation
+      // Use the same validation as HOD and teacher registration
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(form.email)) {
-        newErrors.email = "Email is invalid";
-      } else if (!form.email.endsWith('@college.edu') && !form.email.endsWith('.edu')) {
-        newErrors.email = "Please use a valid educational email address";
+        newErrors.email = "Please enter a valid email address";
       }
     }
 
@@ -196,7 +195,7 @@ export default function UnifiedStudentRegistrationPage() {
     }
 
     // Validate phone (optional but if provided, must be valid)
-    if (form.phone.trim() && !/^[+]?[\d\s\-\(\)]+$/.test(form.phone.trim())) {
+    if (form.phone.trim() && !/^[+]?[\d\s\-()]+$/.test(form.phone.trim())) {
       newErrors.phone = "Please enter a valid phone number";
     } else if (form.phone.trim() && form.phone.replace(/\D/g, '').length < 10) {
       newErrors.phone = "Phone number must have at least 10 digits";
@@ -273,7 +272,7 @@ export default function UnifiedStudentRegistrationPage() {
       });
       setErrors({});
       
-      success("Student registered successfully!");
+      setSuccessMessage("Student registered successfully!");
       
       // Navigate back after 2 seconds
       setTimeout(() => {
@@ -283,7 +282,6 @@ export default function UnifiedStudentRegistrationPage() {
     } catch (err) {
       const errorMessage = err.response?.data?.error || "Failed to register student";
       setErrors({ submit: errorMessage });
-      showError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -305,13 +303,24 @@ export default function UnifiedStudentRegistrationPage() {
       backTo={roleConfig.backTo}
     >
       {errors.submit && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 mb-4">
-          {errors.submit}
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 mb-4 relative z-10">
+          <div className="flex items-center">
+            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 00-8-8v-1a1 1 0 00-1-1h-1a1 1 0 00-1 1v1a1 1 0 001 1h1a1 1 0 001-1zm-3 8a1 1 0 00-1-1v1a1 1 0 001 1h1a1 1 0 001-1z" clipRule="evenodd" />
+            </svg>
+            <span className="text-sm font-medium">{errors.submit}</span>
+          </div>
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <form onSubmit={handleSubmit} className="space-y-4">
+      {successMessage && (
+        <div className="p-3 bg-green-50 text-green-700 rounded-xl text-sm border border-green-200 mb-4">
+          ✓ {successMessage}
+        </div>
+      )}
+
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 lg:p-10 xl:p-12">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           {/* Name Field */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -365,7 +374,7 @@ export default function UnifiedStudentRegistrationPage() {
               <p className="text-xs text-green-600 mt-1">✓ Valid email address</p>
             )}
             {!form.email && (
-              <p className="text-xs text-gray-500 mt-1">Please enter a valid educational email (.edu required)</p>
+              <p className="text-xs text-gray-500 mt-1">Please enter a valid email address</p>
             )}
           </div>
 

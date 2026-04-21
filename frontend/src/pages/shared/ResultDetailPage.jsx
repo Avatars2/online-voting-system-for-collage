@@ -91,8 +91,11 @@ export default function UnifiedResultDetailPage() {
       const results = resultsResponse.data?.results || [];
       const candidates = results.map(result => ({
         _id: result.candidate?._id,
-        name: result.candidate?.name,
-        student: result.candidate,
+        name: result.candidate?.name?.replace(/\[DELETED USER\]/g, '').trim() || 'Unknown Candidate',
+        student: result.candidate ? {
+          ...result.candidate,
+          name: result.candidate.name?.replace(/\[DELETED USER\]/g, '').trim() || 'Unknown Candidate'
+        } : result.candidate,
         votes: result.votes
       }));
       
@@ -108,8 +111,11 @@ export default function UnifiedResultDetailPage() {
       const results = resultsResponse.data?.results || [];
       const candidates = results.map(result => ({
         _id: result.candidate?._id,
-        name: result.candidate?.name,
-        student: result.candidate,
+        name: result.candidate?.name?.replace(/\[DELETED USER\]/g, '').trim() || 'Unknown Candidate',
+        student: result.candidate ? {
+          ...result.candidate,
+          name: result.candidate.name?.replace(/\[DELETED USER\]/g, '').trim() || 'Unknown Candidate'
+        } : result.candidate,
         votes: result.votes
       }));
       
@@ -124,7 +130,18 @@ export default function UnifiedResultDetailPage() {
 
   const fetchStudentResult = async () => {
     const res = await studentAPI.getElectionCandidates(electionId);
-    const candidates = res.data?.candidates || [];
+    const allCandidates = res.data?.candidates || [];
+    
+    // Clean candidate names by removing [DELETED USER] text
+    const candidates = allCandidates.map(candidate => ({
+      ...candidate,
+      name: candidate.name?.replace(/\[DELETED USER\]/g, '').trim() || 'Unknown Candidate',
+      student: candidate.student ? {
+        ...candidate.student,
+        name: candidate.student.name?.replace(/\[DELETED USER\]/g, '').trim() || 'Unknown Candidate'
+      } : candidate.student
+    }));
+    
     const sortedCandidates = candidates.sort((a, b) => (b.votes || 0) - (a.votes || 0));
     
     // Calculate winner/draw logic for students
@@ -141,7 +158,7 @@ export default function UnifiedResultDetailPage() {
         isDraw = true;
         tiedCandidates = topCandidates;
         winner = null;
-        message = "Election resulted in a draw - no winner declared";
+        message = "Election resulted in a draw";
       } else if (topVotes > 0) {
         winner = sortedCandidates[0];
         isDraw = false;
@@ -227,7 +244,7 @@ export default function UnifiedResultDetailPage() {
       <div className="bg-white rounded-2xl shadow-sm p-6 border border-yellow-200">
         <div className="text-center">
           <div className="text-xs font-semibold tracking-widest text-yellow-700 uppercase">
-            Official Winner
+            Winner
           </div>
           <div className="mt-3 flex justify-center">
             <div className="w-20 h-20 rounded-full ring-4 ring-yellow-400 overflow-hidden bg-gray-100 flex items-center justify-center">

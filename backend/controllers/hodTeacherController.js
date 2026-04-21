@@ -4,6 +4,7 @@ import Department from '../models/Department.js';
 import Class from '../models/Class.js';
 import bcrypt from 'bcryptjs';
 import emailValidationService from '../services/emailValidationService.js';
+import { sendRegistrationEmail, sendAccountDeletionEmail } from './authController.js';
 
 // Register HOD (by admin only)
 export const registerHOD = async (req, res) => {
@@ -24,7 +25,7 @@ export const registerHOD = async (req, res) => {
     // Check if user already exists
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
-      return res.status(400).json({ error: 'User with this email already exists' });
+      return res.status(400).json({ error: "Email already registered" });
     }
 
     // Verify department exists
@@ -44,22 +45,20 @@ export const registerHOD = async (req, res) => {
       assignedDepartment: departmentId // Where HOD is assigned (same for now)
     });
 
-    await hod.save();
-
-    // Update department with HOD
-    department.hod = hod._id;
-    await department.save();
-
-    // Send registration email
+    // Send registration email BEFORE saving (so we have the plain password)
     try {
-      const loginLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`;
-      const { sendRegistrationEmail } = await import('./authController.js');
-      await sendRegistrationEmail(normalizedEmail, name.trim(), 'hod', loginLink);
+      await sendRegistrationEmail(normalizedEmail, name.trim(), password, 'hod');
       console.log(`Registration email sent to HOD: ${normalizedEmail}`);
     } catch (emailError) {
       console.error('Failed to send registration email to HOD:', emailError);
       // Continue even if email fails
     }
+
+    await hod.save();
+
+    // Update department with HOD
+    department.hod = hod._id;
+    await department.save();
 
     res.status(201).json({
       message: 'HOD registered successfully',
@@ -97,7 +96,7 @@ export const registerTeacher = async (req, res) => {
     // Check if user already exists
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
-      return res.status(400).json({ error: 'User with this email already exists' });
+      return res.status(400).json({ error: "Email already registered" });
     }
 
     // Verify class exists
@@ -117,22 +116,20 @@ export const registerTeacher = async (req, res) => {
       assignedDepartment: classObj.department._id
     });
 
-    await teacher.save();
-
-    // Update class with class teacher
-    classObj.classTeacher = teacher._id;
-    await classObj.save();
-
-    // Send registration email
+    // Send registration email BEFORE saving (so we have the plain password)
     try {
-      const loginLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`;
-      const { sendRegistrationEmail } = await import('./authController.js');
-      await sendRegistrationEmail(normalizedEmail, name.trim(), 'teacher', loginLink);
+      await sendRegistrationEmail(normalizedEmail, name.trim(), password, 'teacher');
       console.log(`Registration email sent to Teacher: ${normalizedEmail}`);
     } catch (emailError) {
       console.error('Failed to send registration email to Teacher:', emailError);
       // Continue even if email fails
     }
+
+    await teacher.save();
+
+    // Update class with class teacher
+    classObj.classTeacher = teacher._id;
+    await classObj.save();
 
     res.status(201).json({
       message: 'Teacher registered successfully',
@@ -262,10 +259,7 @@ export const registerStudent = async (req, res) => {
     // Check if user already exists
     const existing = await User.findOne({ email: normalizedEmail });
     if (existing) {
-      if (existing.role === "admin" || existing.is_admin === true) {
-        return res.status(409).json({ error: "This email is already used by admin account" });
-      }
-      return res.status(409).json({ error: "Student with this email already exists" });
+      return res.status(409).json({ error: "Email already registered" });
     }
 
     // Check enrollment ID uniqueness
@@ -292,6 +286,15 @@ export const registerStudent = async (req, res) => {
       departmentObj = classObj.department;
     }
 
+    // Send registration email BEFORE saving (so we have the plain password)
+    try {
+      await sendRegistrationEmail(normalizedEmail, String(name).trim(), tempPassword, 'student');
+      console.log(`Registration email sent to Student: ${normalizedEmail}`);
+    } catch (emailError) {
+      console.error('Failed to send registration email to Student:', emailError);
+      // Continue even if email fails
+    }
+
     const user = await User.create({
       name: String(name).trim(),
       email: normalizedEmail,
@@ -306,17 +309,6 @@ export const registerStudent = async (req, res) => {
     
     console.log("HOD/Teacher registerStudent API - created new student:", { _id: user._id, class: user.class, department: user.department });
     const { password: _, ...safe } = user.toObject();
-
-    // Send registration email
-    try {
-      const loginLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`;
-      const { sendRegistrationEmail } = await import('./authController.js');
-      await sendRegistrationEmail(normalizedEmail, String(name).trim(), 'student', loginLink);
-      console.log(`Registration email sent to Student: ${normalizedEmail}`);
-    } catch (emailError) {
-      console.error('Failed to send registration email to Student:', emailError);
-      // Continue even if email fails
-    }
     
     res.status(201).json({
       message: 'Student registered successfully',
@@ -336,7 +328,7 @@ export const registerStudent = async (req, res) => {
     if (error?.code === 11000) {
       const pattern = error.keyPattern || {};
       if (pattern.email) {
-        return res.status(409).json({ error: "Email already registered" });
+        return res.status(409).json({ error: "This email is already used" });
       }
       if (pattern.studentId) {
         return res.status(409).json({ error: "Enrollment ID already registered" });
@@ -350,7 +342,7 @@ export const registerStudent = async (req, res) => {
 // Get students list (for HOD and Teacher)
 export const getStudents = async (req, res) => {
   try {
-    const filter = { role: "student" };
+    const filter = { role: "student", isDeleted: { $ne: true } };
     
     console.log("getStudents API - user:", {
       role: req.user?.role,
@@ -450,7 +442,39 @@ export const deleteStudent = async (req, res) => {
     }
 
     // Delete the student
-    await User.findByIdAndDelete(id);
+    const deletedStudent = await User.findByIdAndDelete(id);
+    
+    // Send deletion notification email
+    try {
+      console.log(`📧 Preparing to send deletion email...`);
+      console.log(`📧 Student Email: ${deletedStudent.email}`);
+      console.log(`📧 Student Name: ${deletedStudent.name}`);
+      console.log(`📧 Deleted By: ${req.user.role} (${req.user.name})`);
+      console.log(`📧 Email Transporter Available: !!transporter`);
+      
+      // Validate email address before sending
+      if (!deletedStudent.email || deletedStudent.email.trim() === '') {
+        console.error(`❌ Invalid email address for student: ${deletedStudent.email}`);
+        return; // Skip email sending if email is invalid
+      }
+      
+      await sendAccountDeletionEmail(
+        deletedStudent.email, 
+        deletedStudent.name, 
+        'student', 
+        `${req.user.role} (${req.user.name})`
+      );
+      console.log(`✅ Deletion email sent to student: ${deletedStudent.email}`);
+    } catch (emailError) {
+      console.error(`❌ Failed to send deletion email to student ${deletedStudent.email}:`, emailError);
+      console.error(`❌ Email Error Details:`, {
+        message: emailError.message,
+        stack: emailError.stack,
+        email: deletedStudent.email,
+        name: deletedStudent.name
+      });
+      // Continue even if email fails
+    }
     
     console.log(`Student ${student.name} deleted by ${req.user.role} ${req.user.name}`);
     res.json({ message: "Student deleted successfully" });

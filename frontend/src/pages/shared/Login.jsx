@@ -13,6 +13,7 @@ export default function Login() {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [touched, setTouched] = useState({});
+  const [formError, setFormError] = useState('');
   
   // Forgot password states
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -23,6 +24,8 @@ export default function Login() {
     const { name, value } = e.target;
     // Simple sanitization - trim whitespace
     const sanitizedValue = value.trim();
+    // Clear form error when user starts typing
+    setFormError('');
     setFormData({ ...formData, [name]: sanitizedValue });
     
     // Clear error for this field when user starts typing
@@ -72,6 +75,7 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormError(''); // Clear any previous form error
     
     // Validate all fields
     const emailError = !formData.email ? 'Email is required' : 
@@ -109,12 +113,12 @@ export default function Login() {
       localStorage.setItem("role", role || "");
       localStorage.setItem("user", JSON.stringify({ role }));
       
-      success('Login successful! Redirecting...');
-      setTimeout(() => navigate(redirect), 1000);
+      navigate(redirect);
       
     } catch (err) {
       console.error("Login error:", err);
-      showError(err.response?.data?.error || "Login failed. Please try again.");
+      const errorMessage = err.response?.data?.error || "Invalid email or password";
+      setFormError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -153,7 +157,13 @@ export default function Login() {
       setResetEmail('');
     } catch (err) {
       console.error('Forgot password error:', err);
-      showError(err.response?.data?.error || 'Failed to send reset email');
+      const errorData = err.response?.data;
+      
+      if (errorData?.code === 'RATE_LIMIT_EXCEEDED') {
+        showError(`Too many password reset attempts. You have used ${errorData.attempts}/${errorData.maxAttempts} attempts. Please try again ${errorData.resetTime}.`);
+      } else {
+        showError(errorData?.error || 'Failed to send reset email');
+      }
     } finally {
       setResetLoading(false);
     }
@@ -165,19 +175,33 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-blue-600 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
-        <div className="bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl p-8 border border-white/20">
+      <div className="w-full max-w-sm sm:max-w-md lg:max-w-lg">
+        <div className="bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl p-6 sm:p-8 lg:p-12 border border-white/20">
           {/* Header */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl mb-4">
-              <span className="text-3xl font-bold text-white">✓</span>
+          <div className="text-center mb-8 animate-fadeInDown">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl mb-4 animate-bounce">
+              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+  <path d="M9 2v2H7c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-2V2H9zm0 2h6v2H9V4zm2 6l5 4-5 4V8z"/>
+</svg>
             </div>
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">OVS</h1>
-            <p className="text-gray-600 text-sm">Online Voting System</p>
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">Online Voting System</h1>
+            <p className="text-gray-600 text-sm">Secure Digital Democracy Platform</p>
           </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Form-level error message */}
+            {formError && (
+              <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md animate-in slide-in-from-top-1">
+                <div className="flex items-center">
+                  <svg className="w-5 h-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  <p className="text-sm text-red-700 font-medium">{formError}</p>
+                </div>
+              </div>
+            )}
+
             <EnhancedInput
               label="Email Address"
               name="email"
@@ -192,7 +216,6 @@ export default function Login() {
               required
               autoComplete="email"
               icon="📧"
-              helperText="We'll never share your email with anyone else"
             />
 
             <EnhancedInput
@@ -209,7 +232,6 @@ export default function Login() {
               required
               autoComplete="current-password"
               icon="🔒"
-              helperText="Must be at least 6 characters with letters and numbers"
             />
 
             <EnhancedButton

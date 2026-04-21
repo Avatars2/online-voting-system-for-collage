@@ -17,6 +17,7 @@ export default function TeacherStudentDetail() {
   const [editLoading, setEditLoading] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ newPassword: "", confirmPassword: "" });
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
     const fetchStudent = async () => {
@@ -74,7 +75,7 @@ export default function TeacherStudentDetail() {
 
       setError("");
       setShowEditModal(false);
-      success("Student updated successfully!");
+      setSuccessMessage("Student updated successfully!");
       
       // Refresh student data
       const response = await teacherAPI.students.list();
@@ -127,7 +128,7 @@ export default function TeacherStudentDetail() {
         setError("");
         setShowPasswordReset(false);
         setPasswordForm({ newPassword: "", confirmPassword: "" });
-        success("Password reset successfully!");
+        setSuccessMessage("Password reset successfully!");
       } else {
         setError(data.error || "Failed to reset password");
       }
@@ -139,13 +140,13 @@ export default function TeacherStudentDetail() {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm("Are you sure you want to delete this student? This action cannot be undone.")) {
+    if (!window.confirm("Are you sure you want to delete this student?")) {
       return;
     }
 
     try {
       await teacherAPI.students.delete(studentId);
-      success("Student deleted successfully!");
+      setSuccessMessage("Student deleted successfully!");
       navigate("/teacher/class");
     } catch (err) {
       setError(err.response?.data?.error || "Failed to delete student");
@@ -188,6 +189,12 @@ export default function TeacherStudentDetail() {
       {error && (
         <div className="p-3 bg-red-50 text-red-700 rounded-xl text-sm border border-red-200 mb-4">
           {error}
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="p-3 bg-green-50 text-green-700 rounded-xl text-sm border border-green-200 mb-4">
+          ✓ {successMessage}
         </div>
       )}
 

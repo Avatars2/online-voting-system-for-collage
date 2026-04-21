@@ -32,8 +32,17 @@ async function seed() {
     const eng2024 = await ClassModel.create({ name: "ENG 2024", department: deptEng._id });
 
     console.log("Creating admin user...");
-    // Only one admin allowed: avatars2610@gmail.com
-    await User.create({ name: "Admin", email: "avatars2610@gmail.com", password: "123456", role: "admin", is_admin: true });
+    // Only one admin allowed: use environment variables for security
+    const adminEmail = process.env.ADMIN_EMAIL || "avatars2610@gmail.com";
+    const adminPassword = process.env.ADMIN_PASSWORD || "123456";
+    
+    await User.create({ 
+      name: "Admin User", 
+      email: adminEmail, 
+      password: adminPassword, 
+      role: "admin", 
+      is_admin: true 
+    });
 
     console.log("Creating student users...");
     await User.create({
@@ -74,9 +83,10 @@ async function seed() {
     console.log("SEED COMPLETED SUCCESSFULLY!");
     console.log("=".repeat(60));
     console.log("\n📋 LOGIN (Email + Password):");
-    console.log("  Admin: avatars2610@gmail.com / 123456");
+    console.log(`  Admin: ${adminEmail} / [Check .env file for password]`);
     console.log("  Student: alice@college.edu / student123");
     console.log("\n✅ Login at http://localhost:5173");
+    console.log("\n🔒 SECURITY: Admin credentials are now in environment variables");
 
     process.exit(0);
   } catch (err) {

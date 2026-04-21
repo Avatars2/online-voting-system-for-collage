@@ -1,12 +1,9 @@
 import { useState, useEffect } from "react";
-import { useToast } from "./UI/Toast";
 
-export default function OTPVerification({ email, onVerified, onCancel, onResend }) {
-  const { success, error: showError } = useToast();
+export default function OTPVerification({ email, onVerified, onCancel }) {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState(60);
-  const [canResend, setCanResend] = useState(false);
 
   // Timer for OTP expiry
   useEffect(() => {
@@ -14,7 +11,7 @@ export default function OTPVerification({ email, onVerified, onCancel, onResend 
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       return () => clearTimeout(timer);
     } else {
-      setCanResend(true);
+      // Timer expired
     }
   }, [timeLeft]);
 
@@ -45,7 +42,7 @@ export default function OTPVerification({ email, onVerified, onCancel, onResend 
   const handleVerify = async () => {
     const otpValue = otp.join("");
     if (otpValue.length !== 6) {
-      showError("Please enter 6-digit OTP");
+      // Don't show error message - just don't proceed
       return;
     }
 
@@ -63,13 +60,12 @@ export default function OTPVerification({ email, onVerified, onCancel, onResend 
       const data = await response.json();
       
       if (response.ok) {
-        success("OTP verified successfully!");
+        // Don't show success message - just proceed
         onVerified();
-      } else {
-        showError(data.error || "Invalid OTP");
       }
-    } catch (err) {
-      showError("Failed to verify OTP");
+      // Don't show error message - let the parent handle it
+    } catch (error) {
+      // Don't show error message - let the parent handle it
     } finally {
       setLoading(false);
     }
@@ -91,15 +87,13 @@ export default function OTPVerification({ email, onVerified, onCancel, onResend 
       const data = await response.json();
       
       if (response.ok) {
-        success("OTP sent to your email!");
+        // Don't show success message - just reset timer
         setTimeLeft(60);
-        setCanResend(false);
         setOtp(["", "", "", "", "", ""]);
-      } else {
-        showError(data.error || "Failed to send OTP");
       }
-    } catch (err) {
-      showError("Failed to send OTP");
+      // Don't show error message - let the parent handle it
+    } catch (error) {
+      // Don't show error message - let the parent handle it
     } finally {
       setLoading(false);
     }

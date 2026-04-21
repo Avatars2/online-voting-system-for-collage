@@ -9,9 +9,9 @@ export default function HODRegistration() {
   const navigate = useNavigate();
   const { success: showSuccess, error: showError } = useToast();
   const [departments, setDepartments] = useState([]);
+  const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
   const [emailValidation, setEmailValidation] = useState({ isValid: false, message: "" });
   
   const [formData, setFormData] = useState({
@@ -140,7 +140,6 @@ export default function HODRegistration() {
       console.log("HOD registered successfully:", response);
       
       setSuccessMessage(`HOD registration successful! ${response.data.hod.name} (${response.data.hod.email}) is now Head of Department.`);
-      showSuccess(`HOD registered successfully!`);
       
       // Reset form
       setFormData({
@@ -160,7 +159,6 @@ export default function HODRegistration() {
       console.error("Registration error:", err);
       const errorMessage = err.response?.data?.error || err.message || "Registration failed. Please try again.";
       setError(errorMessage);
-      showError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -193,7 +191,7 @@ export default function HODRegistration() {
 
       {successMessage && (
         <div className="p-3 bg-green-50 text-green-700 rounded-xl text-sm border border-green-200">
-          {successMessage}
+          ✓ {successMessage}
         </div>
       )}
 

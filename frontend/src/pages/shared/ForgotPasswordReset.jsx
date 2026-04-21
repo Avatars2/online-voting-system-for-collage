@@ -15,10 +15,12 @@ export default function ForgotPasswordReset() {
   const [tokenValid, setTokenValid] = useState(null);
   
   const token = searchParams.get('token');
+  const email = searchParams.get('email');
   
   const [formData, setFormData] = useState({
     newPassword: "",
-    confirmPassword: ""
+    confirmPassword: "",
+    email: email || ""
   });
 
   const [showPasswords, setShowPasswords] = useState({
@@ -27,6 +29,7 @@ export default function ForgotPasswordReset() {
   });
 
   const [errors, setErrors] = useState({});
+  const [successMessage, setSuccessMessage] = useState("");
 
   // Check if token is valid on component mount
   useEffect(() => {
@@ -43,6 +46,13 @@ export default function ForgotPasswordReset() {
 
   const validateForm = () => {
     const newErrors = {};
+
+    // Validate email
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      newErrors.email = "Please enter a valid email address";
+    }
 
     // Validate new password
     const passwordValidation = validatePassword(formData.newPassword);
@@ -97,12 +107,13 @@ export default function ForgotPasswordReset() {
     try {
       const response = await authAPI.resetPasswordWithToken({
         token: token,
-        newPassword: formData.newPassword
+        newPassword: formData.newPassword,
+        email: formData.email.trim()
       });
 
       if (response.data) {
         setSuccess(true);
-        showSuccess("Password reset successfully!");
+        setSuccessMessage("Password reset successfully!");
         
         // Redirect to login after 3 seconds
         setTimeout(() => {
@@ -113,7 +124,6 @@ export default function ForgotPasswordReset() {
       console.error("Password reset error:", err);
       const errorMessage = err.response?.data?.error || "Failed to reset password. Please try again.";
       setError(errorMessage);
-      showError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -122,8 +132,8 @@ export default function ForgotPasswordReset() {
   if (tokenValid === false) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-400 via-purple-500 to-indigo-600 p-3 sm:p-4 flex items-center justify-center">
-        <div className="w-full max-w-md">
-          <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl overflow-hidden border border-white/30 p-8 text-center">
+        <div className="w-full max-w-md sm:max-w-lg">
+          <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl overflow-hidden border border-white/30 p-6 sm:p-8 lg:p-12 text-center">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertCircle className="w-8 h-8 text-red-600" />
             </div>
@@ -145,8 +155,8 @@ export default function ForgotPasswordReset() {
   if (success) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-400 via-purple-500 to-indigo-600 p-3 sm:p-4 flex items-center justify-center">
-        <div className="w-full max-w-md">
-          <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl overflow-hidden border border-white/30 p-8 text-center">
+        <div className="w-full max-w-md sm:max-w-lg">
+          <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl overflow-hidden border border-white/30 p-6 sm:p-8 lg:p-12 text-center">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-8 h-8 text-green-600" />
             </div>
@@ -161,7 +171,7 @@ export default function ForgotPasswordReset() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-400 via-purple-500 to-indigo-600 p-3 sm:p-4 flex items-center justify-center">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md sm:max-w-lg">
         <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl overflow-hidden border border-white/30">
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white text-center">
@@ -181,7 +191,44 @@ export default function ForgotPasswordReset() {
               </div>
             )}
 
+            {successMessage && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start gap-2">
+                <div className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5">✓</div>
+                <span className="text-sm text-green-700">{successMessage}</span>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors.email ? "border-red-500" : "border-gray-300"
+                    } ${email ? "bg-gray-100" : ""}`}
+                    placeholder="Enter your email address"
+                    disabled={loading || !!email}
+                    readOnly={!!email}
+                  />
+                </div>
+                {errors.email && (
+                  <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                )}
+                {email && (
+                  <p className="mt-1 text-xs text-gray-500">Email extracted from reset link</p>
+                )}
+              </div>
+
               {/* New Password */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

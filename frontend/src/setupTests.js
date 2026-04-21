@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom';
 
+/* eslint-disable no-undef */
 // Mock localStorage
 const localStorageMock = {
   getItem: jest.fn(),

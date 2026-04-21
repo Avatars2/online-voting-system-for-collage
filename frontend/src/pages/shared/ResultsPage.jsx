@@ -338,9 +338,9 @@ export default function UnifiedResultsPage() {
     if (elections.length === 0) return null;
 
     return (
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
-        <div className="flex justify-between items-center mb-3">
-          <div className="font-bold text-gray-900">{title}</div>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 lg:p-10 mb-6">
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <div className="text-lg sm:text-xl font-bold text-gray-900">{title}</div>
           <div className={`text-xs font-semibold ${countColor}`}>{elections.length} {status.toUpperCase()}</div>
         </div>
         <div className="space-y-2">
@@ -354,7 +354,10 @@ export default function UnifiedResultsPage() {
     return (
       <ShellComponent title={roleConfig.title} subtitle="Loading...">
         <div className="flex items-center justify-center h-64">
-          <div className="text-gray-600">Loading...</div>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+            <div className="text-gray-600 text-lg sm:text-xl">Loading...</div>
+          </div>
         </div>
       </ShellComponent>
     );
@@ -374,18 +377,15 @@ export default function UnifiedResultsPage() {
       )}
 
       {/* Search Bar */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 lg:p-10 mb-6">
         <input
           type="text"
           placeholder="Search elections..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="input-base w-full"
+          className="input-base w-full text-base sm:text-lg px-4 py-3 sm:px-6 sm:py-4"
         />
       </div>
-
-      {/* Class Information (Teacher Only) */}
-      {renderClassInfo()}
 
       {/* Elections by Status */}
       {roleConfig.showAllStatuses ? (
@@ -399,8 +399,8 @@ export default function UnifiedResultsPage() {
           {completed.length > 0 ? (
             renderElectionsSection("Completed Elections", completed, "completed")
           ) : (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
-              <div className="text-center py-8">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 lg:p-10 mb-6">
+              <div className="text-center py-8 sm:py-12">
                 <div className="text-gray-600">
                   {search ? "No elections found matching your search." : "No completed elections available yet."}
                 </div>
@@ -415,9 +415,9 @@ export default function UnifiedResultsPage() {
 
       {/* No Elections Message */}
       {getFilteredElections().length === 0 && !loading && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
-          <div className="text-center py-8">
-            <div className="text-4xl mb-4">🗳️</div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 lg:p-10 mb-6">
+          <div className="text-center py-8 sm:py-12">
+            <div className="text-5xl sm:text-6xl mb-4 sm:mb-6">🗳️</div>
             <div className="text-gray-600 font-medium">
               {search ? "No elections found matching your search" : "No elections available yet"}
             </div>

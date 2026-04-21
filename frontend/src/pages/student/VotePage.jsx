@@ -3,26 +3,26 @@ import { useNavigate, useParams } from "react-router-dom";
 import { studentAPI } from "../../services/api";
 import StudentMobileShell from "../../components/StudentMobileShell";
 import OTPVerification from "../../components/OTPVerification";
-import { useToast } from "../../components/UI/Toast";
 
 export default function VotePage() {
   const navigate = useNavigate();
   const { electionId } = useParams();
-  const { success, error: showError } = useToast();
   const [election, setElection] = useState(null);
   const [candidates, setCandidates] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("error");
   const [studentEmail, setStudentEmail] = useState("");
   const [showOTP, setShowOTP] = useState(false);
 
   useEffect(() => {
     if (!electionId) {
       setLoading(false);
-      setError("No election selected");
+      setMessage("No election selected");
+      setMessageType("error");
       return;
     }
     const fetchData = async () => {
@@ -37,7 +37,18 @@ export default function VotePage() {
         console.log("VotePage: Student response:", studentRes.data);
         
         setElection(candidatesRes.data?.election || { _id: electionId, title: "Election" });
-        setCandidates(candidatesRes.data?.candidates || []);
+        
+        // Clean candidate names by removing [DELETED USER] text
+        const allCandidates = candidatesRes.data?.candidates || [];
+        const cleanedCandidates = allCandidates.map(candidate => ({
+          ...candidate,
+          name: candidate.name?.replace(/\[DELETED USER\]/g, '').trim() || 'Unknown Candidate',
+          student: candidate.student ? {
+            ...candidate.student,
+            name: candidate.student.name?.replace(/\[DELETED USER\]/g, '').trim() || 'Unknown Candidate'
+          } : candidate.student
+        }));
+        setCandidates(cleanedCandidates);
         
         const email = studentRes.data?.email || "";
         setStudentEmail(email);
@@ -45,7 +56,8 @@ export default function VotePage() {
         
       } catch (err) {
         console.error("VotePage: Error fetching data:", err);
-        setError(err.response?.data?.error || "Failed to load candidates");
+        setMessage(err.response?.data?.error || "Failed to load candidates");
+        setMessageType("error");
         setCandidates([]);
       } finally {
         setLoading(false);
@@ -88,15 +100,18 @@ export default function VotePage() {
       console.log("handleConfirmVote: Response data:", data);
       
       if (response.ok) {
-        success("OTP sent to your email!");
+        setMessage("OTP sent to your email!");
+        setMessageType("success");
         setShowOTP(true);
       } else {
         console.error("handleConfirmVote: Server error:", data.error);
-        showError(data.error || "Failed to send OTP");
+        setMessage(data.error || "Failed to send OTP");
+        setMessageType("error");
       }
     } catch (err) {
       console.error("handleConfirmVote: Network error:", err);
-      showError("Failed to send OTP");
+      setMessage("Failed to send OTP");
+      setMessageType("error");
     } finally {
       setSubmitting(false);
     }
@@ -105,16 +120,20 @@ export default function VotePage() {
   const handleVoteAfterOTP = async () => {
     if (!selectedId || !electionId) return;
     setSubmitting(true);
-    setError("");
+    setMessage("");
+    setMessageType("error");
     try {
       await studentAPI.vote(electionId, selectedId);
       setConfirmed(true);
       setShowOTP(false);
+      setMessage("Vote recorded successfully!");
+      setMessageType("success");
       setTimeout(() => {
         navigate("/student/elections");
       }, 1500);
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to submit vote");
+      setMessage(err.response?.data?.error || "Failed to submit vote");
+      setMessageType("error");
       setShowOTP(false);
     } finally {
       setSubmitting(false);
@@ -124,16 +143,25 @@ export default function VotePage() {
   if (loading) {
     return (
       <StudentMobileShell title="Vote" subtitle="Loading..." backTo="/student/elections">
-        <div className="text-white/90 text-sm">Loading...</div>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-emerald-600 border-t-transparent mx-auto mb-4"></div>
+            <div className="text-gray-600 text-lg sm:text-xl">Loading...</div>
+          </div>
+        </div>
       </StudentMobileShell>
     );
   }
 
-  if (error && candidates.length === 0) {
+  if (message && candidates.length === 0) {
     return (
       <StudentMobileShell title="Vote" subtitle="Select candidate" backTo="/student/elections">
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl">
-          {error}
+        <div className={`p-3 border rounded-xl text-sm ${
+          messageType === "success" 
+            ? "bg-green-50 border-green-200 text-green-700" 
+            : "bg-red-50 border-red-200 text-red-700"
+        }`}>
+          {message}
         </div>
       </StudentMobileShell>
     );
@@ -146,29 +174,34 @@ export default function VotePage() {
         subtitle={election?.title || "Election"}
         backTo="/student/elections"
       >
-        {error && (
-          <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
-            {error}
+        {message && (
+          <div className={`p-3 border rounded-xl text-sm ${
+            messageType === "success" 
+              ? "bg-green-50 border-green-200 text-green-700" 
+              : "bg-red-50 border-red-200 text-red-700"
+          }`}>
+            {message}
           </div>
         )}
 
         {!confirmed ? (
           candidates.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center text-gray-600">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 sm:p-12 lg:p-16 text-center text-gray-600">
               No candidates in this election
             </div>
           ) : (
             <>
-              <div className="space-y-3">
-                {candidates.map((candidate) => (
+              <div className="space-y-4 sm:space-y-6">
+                {candidates.map((candidate, index) => (
                   <div
                     key={candidate._id}
                     onClick={() => setSelectedId(candidate._id)}
-                    className={`bg-white rounded-2xl border shadow-sm p-4 cursor-pointer transition ${
+                    className={`bg-white rounded-2xl border shadow-sm p-6 sm:p-8 cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-md animate-fadeInUp ${
                       selectedId === candidate._id
-                        ? "border-emerald-300 bg-emerald-50 ring-2 ring-emerald-200"
+                        ? "border-emerald-300 bg-emerald-50 ring-2 ring-emerald-200 scale-[1.03]"
                         : "border-gray-100 hover:bg-gray-50"
                     }`}
+                    style={{ animationDelay: `${index * 100}ms` }}
                   >
                     <div className="flex items-center gap-3">
                       <input
@@ -178,8 +211,8 @@ export default function VotePage() {
                         className="w-5 h-5 cursor-pointer"
                       />
                       <div className="flex-grow min-w-0">
-                        <h3 className="font-semibold text-gray-900 truncate">{candidate.name}</h3>
-                        <p className="text-sm text-gray-600">{candidate.position || "Candidate"}</p>
+                        <h3 className="font-semibold text-gray-900 text-base sm:text-lg truncate">{candidate.name}</h3>
+                        <p className="text-base sm:text-lg text-gray-600">{candidate.position || "Candidate"}</p>
                       </div>
                       {selectedId === candidate._id ? (
                         <div className="text-emerald-600 text-xl font-bold">✓</div>
@@ -192,7 +225,7 @@ export default function VotePage() {
               <button
                 onClick={handleConfirmVote}
                 disabled={!selectedId || submitting}
-                className={`w-full py-3 rounded-xl font-semibold transition mt-2 ${
+                className={`w-full py-4 sm:py-6 rounded-xl font-semibold transition mt-6 text-base sm:text-lg ${
                   selectedId && !submitting
                     ? "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800"
                     : "bg-gray-300 text-gray-600 cursor-not-allowed"
@@ -203,7 +236,7 @@ export default function VotePage() {
             </>
           )
         ) : (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 sm:p-12 lg:p-16 text-center">
             <div className="text-6xl mb-3">✓</div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Vote Recorded!</h2>
             <p className="text-gray-600">Your vote has been successfully recorded.</p>

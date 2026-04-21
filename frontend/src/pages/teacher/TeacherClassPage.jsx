@@ -22,6 +22,17 @@ export default function TeacherClassPage() {
   const [showEditStudent, setShowEditStudent] = useState(null);
   const [editForm, setEditForm] = useState({ name: "", email: "", studentId: "", phone: "" });
   const [editLoading, setEditLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  // Auto-hide success message after 2 seconds
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage("");
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
 
   // Test teacher API authentication
   const testTeacherAuth = async () => {
@@ -140,7 +151,7 @@ export default function TeacherClassPage() {
       const data = await response.json();
       
       if (response.ok) {
-        success("Password reset successfully!");
+        setSuccessMessage("Password reset successfully!");
         setShowPasswordReset(null);
         setResetForm({ newPassword: "", confirmPassword: "" });
       } else {
@@ -181,7 +192,7 @@ export default function TeacherClassPage() {
 
       setError("");
       closeModals();
-      success("Student updated successfully!");
+      setSuccessMessage("Student updated successfully!");
       
       // Refresh students list using teacher API
       const studentsResponse = await teacherAPI.students.list(id);
@@ -193,8 +204,8 @@ export default function TeacherClassPage() {
     }
   };
 
-  const handleDeleteStudent = async (studentId) => {
-    if (!window.confirm("Are you sure you want to delete this student? This action cannot be undone.")) {
+  const handleDeleteStudent = async (studentId, studentName) => {
+    if (!window.confirm(`Are you sure you want to delete ${studentName}?`)) {
       return;
     }
 
@@ -202,7 +213,7 @@ export default function TeacherClassPage() {
       await teacherAPI.students.delete(studentId);
       setError("");
       closeModals();
-      success("Student deleted successfully!");
+      setSuccessMessage("Student deleted successfully!");
       
       // Refresh students list using teacher API
       const studentsResponse = await teacherAPI.students.list(id);
@@ -266,7 +277,7 @@ export default function TeacherClassPage() {
     teacherAPI.students.create(payload)
     .then(async () => {
       setForm({ name: "", enrollmentId: "", email: "", phone: "", tempPassword: "" });
-      success("Student enrolled successfully!");
+      setSuccessMessage("Student enrolled successfully!");
       
       // Refresh students list using teacher API
       const studentsResponse = await teacherAPI.students.list(id);
@@ -312,6 +323,12 @@ export default function TeacherClassPage() {
       {error && (
         <div className="p-3 bg-red-50 text-red-700 rounded-xl text-sm border border-red-200">
           {error}
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="p-3 bg-green-50 text-green-700 rounded-xl text-sm border border-green-200">
+          ✓ {successMessage}
         </div>
       )}
 
@@ -430,7 +447,7 @@ export default function TeacherClassPage() {
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => handleDeleteStudent(showStudentProfile._id)}
+                  onClick={() => handleDeleteStudent(showStudentProfile._id, showStudentProfile.name)}
                   className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                 >
                   Delete

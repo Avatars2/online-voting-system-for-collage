@@ -1,6 +1,37 @@
 import express from 'express';
 import { protect } from '../middleware/roleAuth.js';
 import Notice from '../models/Notice.js';
+import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Configure multer for PDF uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, '../uploads'));
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'pdf-' + uniqueSuffix + '-' + file.originalname);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  },
+  fileFilter: function (req, file, cb) {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files are allowed'), false);
+    }
+  }
+});
 
 const router = express.Router();
 
@@ -89,6 +120,29 @@ router.get('/', protect, async (req, res) => {
   } catch (err) {
     console.error('list notices error:', err);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// PDF upload endpoint
+router.post('/upload', protect, upload.single('pdf'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No PDF file uploaded' });
+    }
+    
+    const fileUrl = `/uploads/${req.file.filename}`;
+    console.log('PDF uploaded successfully:', fileUrl);
+    
+    res.json({ 
+      success: true, 
+      url: fileUrl,
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+      size: req.file.size
+    });
+  } catch (err) {
+    console.error('PDF upload error:', err);
+    res.status(500).json({ error: 'File upload failed' });
   }
 });
 

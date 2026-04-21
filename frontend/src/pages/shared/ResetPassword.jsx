@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import { authAPI } from "../../services/api";
 import AdminMobileShell from "../../components/AdminMobileShell";
 import StudentMobileShell from "../../components/StudentMobileShell";
@@ -27,6 +28,11 @@ export default function ResetPassword() {
   });
 
   const [errors, setErrors] = useState({});
+  const [currentPasswordError, setCurrentPasswordError] = useState("");
+  const [newPasswordError, setNewPasswordError] = useState("");
+  const [confirmPasswordError, setConfirmPasswordError] = useState("");
+  const [validatingCurrentPassword, setValidatingCurrentPassword] = useState(false);
+  const [passwordValidationTimeout, setPasswordValidationTimeout] = useState(null);
 
   useEffect(() => {
     const currentRole = localStorage.getItem("role");
@@ -39,6 +45,15 @@ export default function ResetPassword() {
     
     setRole(currentRole);
   }, [navigate]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (passwordValidationTimeout) {
+        clearTimeout(passwordValidationTimeout);
+      }
+    };
+  }, [passwordValidationTimeout]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -68,17 +83,66 @@ export default function ResetPassword() {
     return Object.keys(newErrors).length === 0;
   };
 
+  const validateCurrentPassword = async (password) => {
+    // Only check if field is required, no other validation
+    if (!password.trim()) {
+      setCurrentPasswordError("Current password is required");
+      return false;
+    }
+    
+    // Clear error if field has content
+    setCurrentPasswordError("");
+    return true;
+  };
+
   const handleChange = (e) => {
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     });
+    
     // Clear errors for this field
-    if (errors[e.target.name]) {
+    if (errors[name]) {
       setErrors({
         ...errors,
-        [e.target.name]: ""
+        [name]: ""
       });
+    }
+    
+    // Real-time validation
+    if (name === "currentPassword") {
+      if (!value.trim()) {
+        setCurrentPasswordError("Current password is required");
+      } else {
+        setCurrentPasswordError("");
+      }
+    } else if (name === "newPassword") {
+      if (!value.trim()) {
+        setNewPasswordError("New password is required");
+      } else if (value.length < 6) {
+        setNewPasswordError("Password must be at least 6 characters long");
+      } else if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(value)) {
+        setNewPasswordError("Password must contain both letters and numbers");
+      } else if (value === formData.currentPassword) {
+        setNewPasswordError("New password must be different from current password");
+      } else {
+        setNewPasswordError("");
+        // Check confirm password if it's already filled
+        if (formData.confirmPassword && value !== formData.confirmPassword) {
+          setConfirmPasswordError("Passwords do not match");
+        } else if (formData.confirmPassword && value === formData.confirmPassword) {
+          setConfirmPasswordError("");
+        }
+      }
+    } else if (name === "confirmPassword") {
+      if (!value.trim()) {
+        setConfirmPasswordError("Please confirm your password");
+      } else if (value !== formData.newPassword) {
+        setConfirmPasswordError("Passwords do not match");
+      } else {
+        setConfirmPasswordError("");
+      }
     }
   };
 
@@ -86,6 +150,11 @@ export default function ResetPassword() {
     e.preventDefault();
     setError("");
     setSuccessMessage("");
+    
+    // Clear all inline errors
+    setCurrentPasswordError("");
+    setNewPasswordError("");
+    setConfirmPasswordError("");
 
     if (!validateForm()) {
       return;
@@ -94,12 +163,24 @@ export default function ResetPassword() {
     try {
       setLoading(true);
       
-      await authAPI.changePassword(formData.currentPassword, formData.newPassword);
+      // Create custom axios instance without 401 interceptor for password change
+      const customApi = axios.create({
+        baseURL: import.meta.env.VITE_API_URL || "/api",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+        },
+      });
       
+      await customApi.post("/auth/change-password", {
+        oldPassword: formData.currentPassword,
+        newPassword: formData.newPassword
+      });
+      
+      // Show success message
       setSuccessMessage("Password changed successfully!");
-      showSuccess("Password changed successfully!");
       
-      // Clear form
+      // Clear form but keep user on same page
       setFormData({
         currentPassword: "",
         newPassword: "",
@@ -107,21 +188,15 @@ export default function ResetPassword() {
       });
       setErrors({});
 
-      // Redirect based on role after 2 seconds
-      setTimeout(() => {
-        const redirectPath = role === "student" ? "/student/profile" : 
-                           role === "hod" ? "/hod/profile" : 
-                           role === "teacher" ? "/teacher/profile" : 
-                           "/admin/profile";
-        navigate(redirectPath);
-      }, 2000);
-
     } catch (err) {
-      // Handle specific old password mismatch error
-      if (err.response?.data?.error?.includes('old password') || 
-          err.response?.data?.error?.includes('current password')) {
-        setErrors({ currentPassword: "Current password is incorrect" });
-        setError("Current password is incorrect");
+      console.error("Password change error:", err);
+      // Handle specific old password mismatch error without redirect
+      if (err.response?.status === 401 || 
+          err.response?.data?.error?.includes('old password') || 
+          err.response?.data?.error?.includes('current password') ||
+          err.response?.data?.error?.includes('incorrect')) {
+        setCurrentPasswordError("Current password does not match");
+        setErrors({ currentPassword: "Current password does not match" });
       } else {
         const errorMessage = err.response?.data?.error || "Failed to change password";
         setError(errorMessage);
@@ -143,7 +218,7 @@ export default function ResetPassword() {
     switch (role) {
       case "admin":
         return {
-          title: "Reset Password",
+          title: "Change Password",
           subtitle: "Secure your account",
           headerColor: "bg-gradient-to-r from-blue-600 to-purple-600",
           backPath: "/admin/dashboard"
@@ -151,20 +226,20 @@ export default function ResetPassword() {
       case "hod":
         return {
           title: "Change Password",
-          subtitle: "Update your HOD password",
+          subtitle: "Change your password",
           headerColor: "bg-gradient-to-r from-green-600 to-teal-700",
           backPath: "/hod/dashboard"
         };
       case "teacher":
         return {
           title: "Change Password",
-          subtitle: "Update Your Password",
+          subtitle: "Change your password",
           headerColor: "bg-gradient-to-r from-blue-600 to-indigo-700",
           backPath: "/teacher/dashboard"
         };
       case "student":
         return {
-          title: "Reset Password",
+          title: "Change Password",
           subtitle: "Change your password",
           headerColor: "bg-gradient-to-r from-purple-600 to-pink-600",
           backPath: "/student/dashboard"
@@ -189,19 +264,14 @@ export default function ResetPassword() {
 
   return (
     <Shell {...shellProps}>
-      {error && (
-        <div className="p-3 bg-red-50 text-red-700 rounded-xl text-sm border border-red-200 mb-4">
-          {error}
-        </div>
-      )}
-
-      {successMessage && (
-        <div className="p-3 bg-green-50 text-green-700 rounded-xl text-sm border border-green-200 mb-4">
-          ✓ {successMessage}
-        </div>
-      )}
-
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        {/* Success Message in Form */}
+        {successMessage && (
+          <div className="p-3 bg-green-50 text-green-700 rounded-xl text-sm border border-green-200 mb-4">
+            ✓ {successMessage}
+          </div>
+        )}
+        
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Current Password */}
           <div>
@@ -214,7 +284,7 @@ export default function ResetPassword() {
                 name="currentPassword"
                 value={formData.currentPassword}
                 onChange={handleChange}
-                className={`input-base pr-10 ${errors.currentPassword ? 'border-red-500' : ''}`}
+                className={`input-base pr-10 ${currentPasswordError ? 'border-red-300 focus:border-red-500' : ''}`}
                 placeholder="Enter your current password"
                 disabled={loading}
                 required
@@ -227,8 +297,8 @@ export default function ResetPassword() {
                 {showPasswords.current ? "👁️" : "🙈"}
               </button>
             </div>
-            {errors.currentPassword && (
-              <p className="text-xs text-red-600 mt-1">{errors.currentPassword}</p>
+            {currentPasswordError && (
+              <p className="text-xs text-red-600 mt-1">{currentPasswordError}</p>
             )}
           </div>
 
@@ -243,7 +313,7 @@ export default function ResetPassword() {
                 name="newPassword"
                 value={formData.newPassword}
                 onChange={handleChange}
-                className={`input-base pr-10 ${errors.newPassword ? 'border-red-500' : ''}`}
+                className={`input-base pr-10 ${newPasswordError ? 'border-red-300 focus:border-red-500' : ''}`}
                 placeholder="Enter your new password"
                 disabled={loading}
                 required
@@ -256,12 +326,9 @@ export default function ResetPassword() {
                 {showPasswords.new ? "👁️" : "🙈"}
               </button>
             </div>
-            {errors.newPassword && (
-              <p className="text-xs text-red-600 mt-1">{errors.newPassword}</p>
+            {newPasswordError && (
+              <p className="text-xs text-red-600 mt-1">{newPasswordError}</p>
             )}
-            <p className="text-xs text-gray-500 mt-1">
-              Must be at least 6 characters with letters, numbers, and special characters
-            </p>
           </div>
 
           {/* Confirm New Password */}
@@ -275,7 +342,7 @@ export default function ResetPassword() {
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className={`input-base pr-10 ${errors.confirmPassword ? 'border-red-500' : ''}`}
+                className={`input-base pr-10 ${confirmPasswordError ? 'border-red-300 focus:border-red-500' : ''}`}
                 placeholder="Confirm your new password"
                 disabled={loading}
                 required
@@ -288,49 +355,10 @@ export default function ResetPassword() {
                 {showPasswords.confirm ? "👁️" : "🙈"}
               </button>
             </div>
-            {errors.confirmPassword && (
-              <p className="text-xs text-red-600 mt-1">{errors.confirmPassword}</p>
+            {confirmPasswordError && (
+              <p className="text-xs text-red-600 mt-1">{confirmPasswordError}</p>
             )}
           </div>
-
-          {/* Password Strength Indicator */}
-          {formData.newPassword && (
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-gray-700">Password Requirements:</div>
-              <div className="space-y-1">
-                <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${
-                    formData.newPassword.length >= 6 ? "bg-green-500" : "bg-gray-300"
-                  }`}></div>
-                  <span className="text-xs text-gray-600">At least 6 characters</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${
-                    /(?=.*[a-z])/.test(formData.newPassword.toLowerCase()) ? "bg-green-500" : "bg-gray-300"
-                  }`}></div>
-                  <span className="text-xs text-gray-600">Contains at least one letter</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${
-                    /(?=.*\d)/.test(formData.newPassword.toLowerCase()) ? "bg-green-500" : "bg-gray-300"
-                  }`}></div>
-                  <span className="text-xs text-gray-600">Contains at least one number</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${
-                    /(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/.test(formData.newPassword) ? "bg-green-500" : "bg-gray-300"
-                  }`}></div>
-                  <span className="text-xs text-gray-600">Contains at least one special character</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${
-                    formData.newPassword.length <= 128 ? "bg-green-500" : "bg-gray-300"
-                  }`}></div>
-                  <span className="text-xs text-gray-600">Less than 128 characters</span>
-                </div>
-              </div>
-            </div>
-          )}
 
           <button
             type="submit"
@@ -340,18 +368,6 @@ export default function ResetPassword() {
             {loading ? "Changing Password..." : "Change Password"}
           </button>
         </form>
-      </div>
-
-      {/* Password Tips */}
-      <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-        <h3 className="text-sm font-semibold text-blue-800 mb-2">Password Tips:</h3>
-        <ul className="text-xs text-blue-700 space-y-1">
-          <li>• Use at least 6 characters</li>
-          <li>• Include letters and numbers</li>
-          <li>• Add special characters (!@#$%^&* etc.)</li>
-          <li>• Keep it under 128 characters</li>
-          <li>• Don't share your password with anyone</li>
-        </ul>
       </div>
     </Shell>
   );

@@ -6,6 +6,7 @@ import Election from "../models/Election.js";
 import Candidate from "../models/Candidate.js";
 import User from "../models/User.js";
 import { getMessage, getValidationMessage } from "../utils/messages.js";
+import { sendRegistrationEmail, sendAccountDeletionEmail } from "./authController.js";
 
 // Password validation function (same as frontend and authController)
 function validatePassword(password) {
@@ -39,16 +40,24 @@ export async function registerAdmin(req, res) {
     }
     const normalizedEmail = String(email).trim().toLowerCase();
 
-    // Only allow avatars2610@gmail.com to be admin
-    const ADMIN_EMAIL = "avatars2610@gmail.com";
-    if (normalizedEmail !== ADMIN_EMAIL) {
+    // Only allow configured admin email to be admin
+    const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+    if (!ADMIN_EMAIL || normalizedEmail !== ADMIN_EMAIL) {
       return res.status(403).json({ error: getMessage('error', 'ACCESS_DENIED') });
     }
 
     // Check if admin already exists
     const existingAdmin = await User.findOne({ email: normalizedEmail });
     if (existingAdmin) {
-      return res.status(409).json({ error: getMessage('error', 'ADMIN_ALREADY_EXISTS') });
+      return res.status(409).json({ error: "Email already registered" });
+    }
+
+    // Send registration email to admin BEFORE saving (so we have the plain password)
+    try {
+      await sendRegistrationEmail(normalizedEmail, String(name).trim(), password, 'admin');
+      console.log(`Registration email sent to admin: ${normalizedEmail}`);
+    } catch (emailError) {
+      console.error(`Failed to send registration email to admin ${normalizedEmail}:`, emailError);
     }
 
     const user = await User.create({
@@ -60,6 +69,7 @@ export async function registerAdmin(req, res) {
       role: "admin",
       is_admin: true,
     });
+
     return res.status(201).json({ id: user._id, name: user.name, email: user.email, role: user.role });
   } catch (err) {
     console.error("registerAdmin error:", err);
@@ -87,34 +97,20 @@ export async function registerStudent(req, res) {
     // If a student with this email already exists, update their details instead of failing
     const existing = await User.findOne({ email: normalizedEmail });
     if (existing) {
-      if (existing.role === "admin" || existing.is_admin === true) {
-        return res.status(409).json({ error: "This email is already used by the admin account" });
-      }
-      // Optional: prevent enrollmentId collision with another user
-      if (enrollmentId) {
-        const enrollmentValue = String(enrollmentId).trim();
-        const other = await User.findOne({ studentId: enrollmentValue, _id: { $ne: existing._id } });
-        if (other) {
-          return res.status(409).json({ error: "Enrollment ID already registered" });
-        }
-        existing.studentId = enrollmentValue;
-      }
-      existing.name = String(name).trim();
-      existing.phone = phone ? String(phone).trim() : existing.phone;
-      existing.department = department || existing.department;
-      existing.class = classId || existing.class;
-      if (tempPassword) {
-        existing.password = tempPassword;
-      }
-      await existing.save();
-      console.log("registerStudent API - updated existing student:", { _id: existing._id, class: existing.class, department: existing.department });
-      const { password: _p, ...safeExisting } = existing.toObject();
-      return res.status(200).json(safeExisting);
+      return res.status(409).json({ error: "Email already registered" });
     }
 
     if (enrollmentId) {
       const existingId = await User.findOne({ studentId: String(enrollmentId).trim() });
       if (existingId) return res.status(409).json({ error: "Enrollment ID already registered" });
+    }
+
+    // Send registration email to student BEFORE saving (so we have the plain password)
+    try {
+      await sendRegistrationEmail(normalizedEmail, String(name).trim(), tempPassword, 'student');
+      console.log(`Registration email sent to student: ${normalizedEmail}`);
+    } catch (emailError) {
+      console.error(`Failed to send registration email to student ${normalizedEmail}:`, emailError);
     }
 
     const user = await User.create({
@@ -153,9 +149,138 @@ export async function registerStudent(req, res) {
   }
 }
 
+// Register HOD (by admin only)
+export async function registerHOD(req, res) {
+  try {
+    const { name, email, password, phone, departmentId } = req.body;
+
+    if (!name || !email || !password || !departmentId) {
+      return res.status(400).json({ error: "name, email, password and departmentId are required" });
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) {
+      return res.status(400).json({ error: "Email already registered" });
+    }
+
+    // Verify department exists
+    const department = await Department.findById(departmentId);
+    if (!department) {
+      return res.status(404).json({ error: 'Department not found' });
+    }
+
+    // Send registration email to HOD BEFORE saving (so we have the plain password)
+    try {
+      await sendRegistrationEmail(normalizedEmail, String(name).trim(), password, 'hod');
+      console.log(`Registration email sent to HOD: ${normalizedEmail}`);
+    } catch (emailError) {
+      console.error(`Failed to send registration email to HOD ${normalizedEmail}:`, emailError);
+    }
+
+    // Create HOD
+    const hod = await User.create({
+      name: String(name).trim(),
+      email: normalizedEmail,
+      password,
+      phone: phone ? String(phone).trim() : '',
+      role: 'hod',
+      department: departmentId,
+      assignedDepartment: departmentId
+    });
+
+    // Update department with HOD
+    department.hod = hod._id;
+    await department.save();
+
+    res.status(201).json({
+      message: 'HOD registered successfully',
+      hod: {
+        id: hod._id,
+        name: hod.name,
+        email: hod.email,
+        role: hod.role,
+        department: departmentId,
+        assignedDepartment: departmentId,
+        departmentName: department.name
+      }
+    });
+  } catch (err) {
+    console.error("registerHOD error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+}
+
+// Register Teacher (by admin only)
+export async function registerTeacher(req, res) {
+  try {
+    const { name, email, password, phone, classId } = req.body;
+
+    if (!name || !email || !password || !classId) {
+      return res.status(400).json({ error: "name, email, password and classId are required" });
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) {
+      return res.status(400).json({ error: "Email already registered" });
+    }
+
+    // Verify class exists
+    const classObj = await ClassModel.findById(classId).populate('department');
+    if (!classObj) {
+      return res.status(404).json({ error: 'Class not found' });
+    }
+
+    // Send registration email to Teacher BEFORE saving (so we have the plain password)
+    try {
+      await sendRegistrationEmail(normalizedEmail, String(name).trim(), password, 'teacher');
+      console.log(`Registration email sent to teacher: ${normalizedEmail}`);
+    } catch (emailError) {
+      console.error(`Failed to send registration email to teacher ${normalizedEmail}:`, emailError);
+    }
+
+    // Create Teacher
+    const teacher = await User.create({
+      name: String(name).trim(),
+      email: normalizedEmail,
+      password,
+      phone: phone ? String(phone).trim() : '',
+      role: 'teacher',
+      assignedClass: classId,
+      assignedDepartment: classObj.department._id
+    });
+
+    // Update class with class teacher
+    classObj.classTeacher = teacher._id;
+    await classObj.save();
+
+    res.status(201).json({
+      message: 'Teacher registered successfully',
+      teacher: {
+        id: teacher._id,
+        name: teacher.name,
+        email: teacher.email,
+        role: teacher.role,
+        assignedClass: classId,
+        assignedDepartment: classObj.department._id,
+        className: classObj.name,
+        departmentName: classObj.department.name
+      }
+    });
+  } catch (err) {
+    console.error("registerTeacher error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+}
+
 export async function listStudents(req, res) {
   try {
-    const filter = { role: "student" };
+    const filter = { role: "student", isDeleted: { $ne: true } };
     if (req.query.department) {
       filter.department = req.query.department;
     }
@@ -385,21 +510,23 @@ export async function createClass(req, res) {
     
     // Option 1: Create new teacher with email/password (takes priority)
     if (teacherEmail && teacherPassword) {
-      // Validate password
-      const passwordValidation = validatePassword(teacherPassword);
-      if (!passwordValidation.isValid) {
-        return res.status(400).json({ error: `Teacher password: ${passwordValidation.error}` });
-      }
-      
       // Check if teacher with this email already exists
       const existingTeacher = await User.findOne({ email: teacherEmail.toLowerCase().trim() });
       if (existingTeacher) {
-        return res.status(400).json({ error: "Teacher with this email already exists" });
+        return res.status(400).json({ error: "Email already registered" });
       }
       
-      // Create new teacher user
-      createdTeacher = new User({
-        name: teacher || `Teacher of ${name}`,
+      // Send registration email to teacher BEFORE saving (so we have the plain password)
+      try {
+        await sendRegistrationEmail(teacherEmail.toLowerCase().trim(), String(teacherName).trim(), teacherPassword, 'teacher');
+        console.log(`Registration email sent to teacher: ${teacherEmail.toLowerCase().trim()}`);
+      } catch (emailError) {
+        console.error(`Failed to send registration email to teacher ${teacherEmail.toLowerCase().trim()}:`, emailError);
+        // Continue even if email fails
+      }
+      
+      createdTeacher = await User.create({
+        name: String(teacherName).trim(),
         email: teacherEmail.toLowerCase().trim(),
         password: teacherPassword,
         phone: teacherPhone || '',
@@ -407,7 +534,6 @@ export async function createClass(req, res) {
         assignedDepartment: department
       });
       
-      await createdTeacher.save();
       teacherId = createdTeacher._id;
     }
     // Option 2: Use existing teacher by ID (only if not creating new teacher)
@@ -977,9 +1103,10 @@ export async function electionResults(req, res) {
 
     if (election.level === "global") {
       // For global elections, count all students
-      const allStudents = await User.countDocuments({ role: "student" });
+      const allStudents = await User.countDocuments({ role: "student", isDeleted: { $ne: true } });
       const studentsWithVotes = await User.countDocuments({ 
         role: "student", 
+        isDeleted: { $ne: true },
         votedElections: { $in: [new mongoose.Types.ObjectId(electionId)] }
       });
       
@@ -992,6 +1119,7 @@ export async function electionResults(req, res) {
       // For department elections, count students in that department
       const allStudents = await User.countDocuments({ 
         role: "student", 
+        isDeleted: { $ne: true },
         $or: [
           { department: election.department._id },
           { assignedDepartment: election.department._id }
@@ -999,6 +1127,7 @@ export async function electionResults(req, res) {
       });
       const studentsWithVotes = await User.countDocuments({ 
         role: "student",
+        isDeleted: { $ne: true },
         $or: [
           { department: election.department._id },
           { assignedDepartment: election.department._id }
@@ -1015,6 +1144,7 @@ export async function electionResults(req, res) {
       // For class elections, count students in that class
       const allStudents = await User.countDocuments({ 
         role: "student", 
+        isDeleted: { $ne: true },
         $or: [
           { class: election.class._id },
           { assignedClass: election.class._id }
@@ -1022,6 +1152,7 @@ export async function electionResults(req, res) {
       });
       const studentsWithVotes = await User.countDocuments({ 
         role: "student",
+        isDeleted: { $ne: true },
         $or: [
           { class: election.class._id },
           { assignedClass: election.class._id }
@@ -1061,7 +1192,7 @@ export async function getDashboardStats(req, res) {
     const now = new Date();
     const [deptCount, studentCount, allElections] = await Promise.all([
       Department.countDocuments(),
-      User.countDocuments({ role: "student" }),
+      User.countDocuments({ role: "student", isDeleted: { $ne: true } }),
       Election.find(),
     ]);
     const activeElections = allElections.filter(
@@ -1103,13 +1234,35 @@ export async function updateDepartment(req, res) {
 
     // Handle HOD removal
     if (removeHod === true && department.hod) {
+      // Get HOD info before deletion for email
+      const hodToRemove = await User.findById(department.hod);
+      
       // Remove HOD reference from department
       await User.updateMany(
         { _id: department.hod },
         { $unset: { department: 1, assignedDepartment: 1 } }
       );
+      
+      // Delete the HOD user account
+      await User.findByIdAndDelete(department.hod);
+      
+      // Send deletion email to removed HOD
+      if (hodToRemove) {
+        try {
+          await sendAccountDeletionEmail(
+            hodToRemove.email, 
+            hodToRemove.name, 
+            'hod', 
+            `${req.user.role} (${req.user.name})`
+          );
+          console.log(`Deletion email sent to removed HOD: ${hodToRemove.email}`);
+        } catch (emailError) {
+          console.error(`Failed to send deletion email to HOD ${hodToRemove.email}:`, emailError);
+        }
+      }
+      
       hodId = null;
-      console.log("Removed HOD from department");
+      console.log("Removed HOD from department and deleted HOD account");
     }
     // Handle HOD updates/registration
     else if (hodEmail && hodPassword) {
@@ -1135,6 +1288,14 @@ export async function updateDepartment(req, res) {
         department: department._id,
         assignedDepartment: department._id
       });
+      
+      // Send registration email to new HOD BEFORE saving (so we have the plain password)
+      try {
+        await sendRegistrationEmail(createdHod.email, createdHod.name, hodPassword, 'hod');
+        console.log(`Registration email sent to new HOD: ${createdHod.email}`);
+      } catch (emailError) {
+        console.error(`Failed to send registration email to HOD ${createdHod.email}:`, emailError);
+      }
       
       await createdHod.save();
       hodId = createdHod._id;
@@ -1194,9 +1355,26 @@ export async function deleteDepartment(req, res) {
     // Find all classes in this department
     const classesInDepartment = await ClassModel.find({ department: id });
     console.log(`Found ${classesInDepartment.length} classes in department`);
+    
+    const classIds = classesInDepartment.map(c => c._id);
+
+    // Find all users in this department before deletion
+    const studentsInDept = await User.find({ 
+      role: "student",
+      class: { $in: classIds }
+    });
+    
+    const teachersInDept = await User.find({ 
+      role: "teacher",
+      $or: [{ department: id }, { assignedDepartment: id }]
+    });
+    
+    const hodsInDept = await User.find({ 
+      role: "hod",
+      $or: [{ department: id }, { assignedDepartment: id }]
+    });
 
     // Delete all students in these classes
-    const classIds = classesInDepartment.map(c => c._id);
     const deletedStudents = await User.deleteMany({ 
       role: "student",
       class: { $in: classIds }
@@ -1230,6 +1408,39 @@ export async function deleteDepartment(req, res) {
       $or: [{ department: id }, { assignedDepartment: id }]
     });
     console.log(`Deleted ${deletedHod.deletedCount} HODs in department`);
+
+    // Send deletion notification emails
+    const deletedBy = `${req.user.role} (${req.user.name})`;
+    
+    // Send to deleted students
+    for (const student of studentsInDept) {
+      try {
+        await sendAccountDeletionEmail(student.email, student.name, 'student', deletedBy);
+        console.log(`Deletion email sent to student: ${student.email}`);
+      } catch (emailError) {
+        console.error(`Failed to send deletion email to student ${student.email}:`, emailError);
+      }
+    }
+    
+    // Send to deleted teachers
+    for (const teacher of teachersInDept) {
+      try {
+        await sendAccountDeletionEmail(teacher.email, teacher.name, 'teacher', deletedBy);
+        console.log(`Deletion email sent to teacher: ${teacher.email}`);
+      } catch (emailError) {
+        console.error(`Failed to send deletion email to teacher ${teacher.email}:`, emailError);
+      }
+    }
+    
+    // Send to deleted HODs
+    for (const hod of hodsInDept) {
+      try {
+        await sendAccountDeletionEmail(hod.email, hod.name, 'hod', deletedBy);
+        console.log(`Deletion email sent to HOD: ${hod.email}`);
+      } catch (emailError) {
+        console.error(`Failed to send deletion email to HOD ${hod.email}:`, emailError);
+      }
+    }
 
     // Delete the department
     await Department.findByIdAndDelete(id);
@@ -1278,13 +1489,29 @@ export async function updateClass(req, res) {
 
     // Handle teacher removal
     if (removeTeacher === true && classObj.classTeacher) {
-      // Remove teacher reference from class
-      await User.updateMany(
-        { _id: classObj.classTeacher },
-        { $unset: { assignedClass: 1 } }
-      );
+      // Get teacher info before deletion for email
+      const teacherToRemove = await User.findById(classObj.classTeacher);
+      
+      // Delete the teacher account from database
+      await User.findByIdAndDelete(classObj.classTeacher);
+      
+      // Send deletion email to removed teacher
+      if (teacherToRemove) {
+        try {
+          await sendAccountDeletionEmail(
+            teacherToRemove.email, 
+            teacherToRemove.name, 
+            'teacher', 
+            `${req.user.role} (${req.user.name})`
+          );
+          console.log(`Deletion email sent to removed teacher: ${teacherToRemove.email}`);
+        } catch (emailError) {
+          console.error(`Failed to send deletion email to teacher ${teacherToRemove.email}:`, emailError);
+        }
+      }
+      
       teacherId = null;
-      console.log("Removed teacher from class");
+      console.log("Removed teacher from class and deleted teacher account from database");
     }
     // Handle teacher updates/registration
     else if (teacherEmail && teacherPassword) {
@@ -1310,6 +1537,15 @@ export async function updateClass(req, res) {
         assignedClass: classObj._id,
         assignedDepartment: classObj.department._id
       });
+      
+      // Send registration email to teacher BEFORE saving (so we have the plain password)
+      try {
+        await sendRegistrationEmail(createdTeacher.email, createdTeacher.name, teacherPassword, 'teacher');
+        console.log(`Registration email sent to teacher: ${createdTeacher.email}`);
+      } catch (emailError) {
+        console.error(`Failed to send registration email to teacher ${createdTeacher.email}:`, emailError);
+        // Continue even if email fails
+      }
       
       await createdTeacher.save();
       teacherId = createdTeacher._id;
@@ -1367,6 +1603,17 @@ export async function deleteClass(req, res) {
       return res.status(404).json({ error: "Class not found" });
     }
 
+    // Find all users in this class before deletion
+    const studentsInClass = await User.find({ 
+      role: "student",
+      class: id 
+    });
+    
+    const teachersInClass = await User.find({ 
+      role: "teacher",
+      assignedClass: id
+    });
+
     // Delete all students in this class (complete deletion from database)
     const deletedStudents = await User.deleteMany({ 
       role: "student",
@@ -1377,21 +1624,37 @@ export async function deleteClass(req, res) {
     // Remove these students from any candidates
     await Candidate.deleteMany({ student: { $in: deletedStudents.deletedCount > 0 ? id : [] } });
 
-    // Find and delete the teacher assigned to this class
-    const deletedTeacher = await User.deleteMany({ 
-      role: "teacher",
-      assignedClass: id
-    });
-    console.log(`Deleted ${deletedTeacher.deletedCount} teachers in class`);
+    // Send deletion notification emails
+    const deletedBy = `${req.user.role} (${req.user.name})`;
+    
+    // Send to deleted students
+    for (const student of studentsInClass) {
+      try {
+        await sendAccountDeletionEmail(student.email, student.name, 'student', deletedBy);
+        console.log(`Deletion email sent to student: ${student.email}`);
+      } catch (emailError) {
+        console.error(`Failed to send deletion email to student ${student.email}:`, emailError);
+      }
+    }
+    
+    // Send to deleted teachers
+    for (const teacher of teachersInClass) {
+      try {
+        await sendAccountDeletionEmail(teacher.email, teacher.name, 'teacher', deletedBy);
+        console.log(`Deletion email sent to teacher: ${teacher.email}`);
+      } catch (emailError) {
+        console.error(`Failed to send deletion email to teacher ${teacher.email}:`, emailError);
+      }
+    }
 
-    // Delete the class
+    // Delete the class (teachers are already deleted above via User.deleteMany)
     await ClassModel.findByIdAndDelete(id);
     console.log("Class deleted successfully:", id);
 
     res.json({ 
       message: "Class deleted successfully",
       deletedStudents: deletedStudents.deletedCount,
-      deletedTeacher: deletedTeacher.deletedCount
+      deletedTeacher: teachersInClass.length
     });
   } catch (err) {
     console.error("deleteClass error:", err);
@@ -1411,20 +1674,201 @@ export async function deleteStudent(req, res) {
     // Check if student exists and is actually a student
     const student = await User.findOne({ _id: id, role: "student" });
     if (!student) {
+      console.log(`❌ Student not found with ID: ${id}`);
       return res.status(404).json({ error: "Student not found" });
     }
+
+    console.log(`✅ Found student: ${student.name} (${student.email})`);
 
     // Remove student from any candidates
     await Candidate.deleteMany({ student: id });
     console.log("Removed student from candidates");
 
-    // Delete the student
-    await User.findByIdAndDelete(id);
-    console.log("Student deleted successfully:", id);
+    // Store student info for email before deletion
+    const studentInfo = {
+      email: student.email,
+      name: student.name,
+      role: student.role
+    };
 
-    res.json({ message: "Student deleted successfully" });
+    // Delete the student
+    const deletedStudent = await User.findByIdAndDelete(id);
+    console.log(`✅ Student deleted successfully: ${studentInfo.name} (${studentInfo.email})`);
+    
+    // Send deletion notification email with enhanced logging
+    try {
+      console.log(`📧 Attempting to send deletion email to: ${studentInfo.email}`);
+      
+      await sendAccountDeletionEmail(
+        studentInfo.email, 
+        studentInfo.name, 
+        'student', 
+        `${req.user.role} (${req.user.name})`
+      );
+      
+      console.log(`✅ Deletion email sent successfully to: ${studentInfo.email}`);
+      
+      // Log for audit trail
+      console.log(`📋 AUDIT LOG: Student ${studentInfo.name} (${studentInfo.email}) deleted by ${req.user.role} (${req.user.name}) at ${new Date().toISOString()}`);
+      
+    } catch (emailError) {
+      console.error(`❌ Failed to send deletion email to student ${studentInfo.email}:`, emailError);
+      
+      // Enhanced error logging
+      console.error(`📋 EMAIL ERROR DETAILS:`, {
+        studentEmail: studentInfo.email,
+        studentName: studentInfo.name,
+        deletedBy: `${req.user.role} (${req.user.name})`,
+        error: emailError.message,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Continue even if email fails, but log the issue
+      console.log(`⚠️ Student deletion completed but email notification failed`);
+    }
+
+    res.json({ 
+      message: "Student deleted successfully",
+      student: {
+        name: studentInfo.name,
+        email: studentInfo.email,
+        deletionEmailSent: true
+      }
+    });
   } catch (err) {
     console.error("deleteStudent error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+}
+
+// Delete HOD (by admin only)
+export async function deleteHOD(req, res) {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid HOD ID" });
+    }
+
+    console.log("Deleting HOD:", id);
+
+    // Check if HOD exists and is actually a HOD
+    const hod = await User.findOne({ _id: id, role: "hod" });
+    if (!hod) {
+      console.log(`❌ HOD not found with ID: ${id}`);
+      return res.status(404).json({ error: "HOD not found" });
+    }
+
+    console.log(`✅ Found HOD: ${hod.name} (${hod.email})`);
+
+    // Store HOD info for email
+    const hodInfo = {
+      name: hod.name,
+      email: hod.email,
+      role: hod.role
+    };
+
+    // Remove HOD from department
+    if (hod.department) {
+      await Department.findByIdAndUpdate(hod.department, { $unset: { hod: 1 } });
+    }
+
+    // Delete the HOD
+    const deletedHOD = await User.findByIdAndDelete(id);
+    console.log(`✅ HOD deleted successfully: ${hodInfo.name} (${hodInfo.email})`);
+    
+    // Send deletion notification email with enhanced logging
+    try {
+      console.log(`📧 Attempting to send deletion email to: ${hodInfo.email}`);
+      
+      await sendAccountDeletionEmail(
+        hodInfo.email, 
+        hodInfo.name, 
+        'hod', 
+        `${req.user.role} (${req.user.name})`
+      );
+      
+      console.log(`✅ Deletion email sent successfully to: ${hodInfo.email}`);
+    } catch (emailError) {
+      console.error(`❌ Failed to send deletion email to HOD ${hodInfo.email}:`, emailError);
+      console.log(`⚠️ HOD deletion completed but email notification failed`);
+    }
+
+    res.json({ 
+      message: "HOD deleted successfully",
+      hod: {
+        name: hodInfo.name,
+        email: hodInfo.email,
+        deletionEmailSent: true
+      }
+    });
+  } catch (err) {
+    console.error("deleteHOD error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+}
+
+// Delete Teacher (by admin only)
+export async function deleteTeacher(req, res) {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid teacher ID" });
+    }
+
+    console.log("Deleting teacher:", id);
+
+    // Check if teacher exists and is actually a teacher
+    const teacher = await User.findOne({ _id: id, role: "teacher" });
+    if (!teacher) {
+      console.log(`❌ Teacher not found with ID: ${id}`);
+      return res.status(404).json({ error: "Teacher not found" });
+    }
+
+    console.log(`✅ Found teacher: ${teacher.name} (${teacher.email})`);
+
+    // Store teacher info for email
+    const teacherInfo = {
+      name: teacher.name,
+      email: teacher.email,
+      role: teacher.role
+    };
+
+    // Remove teacher from class
+    if (teacher.assignedClass) {
+      await ClassModel.findByIdAndUpdate(teacher.assignedClass, { $unset: { classTeacher: 1 } });
+    }
+
+    // Delete the teacher
+    const deletedTeacher = await User.findByIdAndDelete(id);
+    console.log(`✅ Teacher deleted successfully: ${teacherInfo.name} (${teacherInfo.email})`);
+    
+    // Send deletion notification email with enhanced logging
+    try {
+      console.log(`📧 Attempting to send deletion email to: ${teacherInfo.email}`);
+      
+      await sendAccountDeletionEmail(
+        teacherInfo.email, 
+        teacherInfo.name, 
+        'teacher', 
+        `${req.user.role} (${req.user.name})`
+      );
+      
+      console.log(`✅ Deletion email sent successfully to: ${teacherInfo.email}`);
+    } catch (emailError) {
+      console.error(`❌ Failed to send deletion email to teacher ${teacherInfo.email}:`, emailError);
+      console.log(`⚠️ Teacher deletion completed but email notification failed`);
+    }
+
+    res.json({ 
+      message: "Teacher deleted successfully",
+      teacher: {
+        name: teacherInfo.name,
+        email: teacherInfo.email,
+        deletionEmailSent: true
+      }
+    });
+  } catch (err) {
+    console.error("deleteTeacher error:", err);
     res.status(500).json({ error: "Server error" });
   }
 }

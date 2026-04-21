@@ -6,6 +6,18 @@ import mongoSanitize from 'express-mongo-sanitize';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+// Import security middlewares
+import { 
+  securityHeaders, 
+  compressionMiddleware, 
+  requestSizeLimiter, 
+  ipBlocker,
+  authLimiter,
+  generalLimiter,
+  sanitizeInput,
+  securityLogger
+} from './middleware/security.js';
+
 // Import routes
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
@@ -20,6 +32,12 @@ import { quickValidateEmail, fullValidateEmail } from './controllers/validationC
 // Import database connection
 import connectDB from './config/db.js';
 
+// Import security monitoring
+import { securityMonitor, loginAttemptLimiter } from './middleware/securityMonitor.js';
+
+// Import WebSocket service
+import websocketService from './services/websocketService.js';
+
 // Configure dotenv
 dotenv.config();
 
@@ -33,9 +51,13 @@ const __dirname = path.dirname(__filename);
 // Connect to database
 connectDB();
 
-// Security middleware
-app.use(helmet());
-app.use(mongoSanitize());
+// Enhanced security middleware
+app.use(securityHeaders);
+app.use(compressionMiddleware);
+app.use(requestSizeLimiter);
+app.use(ipBlocker);
+app.use(sanitizeInput);
+app.use(securityLogger);
 
 // CORS configuration
 app.use(cors({
@@ -50,13 +72,13 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// API routes
-app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/hod', hodRoutes);
-app.use('/api/teacher', teacherRoutes);
-app.use('/api/student', studentRoutes);
-app.use('/api/notices', noticeRoutes);
+// API routes with rate limiting
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/admin', generalLimiter, adminRoutes);
+app.use('/api/hod', generalLimiter, hodRoutes);
+app.use('/api/teacher', generalLimiter, teacherRoutes);
+app.use('/api/student', generalLimiter, studentRoutes);
+app.use('/api/notices', generalLimiter, noticeRoutes);
 
 // Email validation routes
 app.post('/api/validate/email-quick', quickValidateEmail);
@@ -92,10 +114,11 @@ app.use('*', (req, res) => {
 const PORT = process.env.PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(` Server running in ${NODE_ENV} mode on port ${PORT}`);
-  //console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-  //console.log(`🔗 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
 });
+
+// Initialize WebSocket service
+websocketService.initialize(server);
 
 export default app;

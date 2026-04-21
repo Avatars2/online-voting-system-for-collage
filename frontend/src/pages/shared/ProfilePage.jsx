@@ -1,16 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { authAPI, hodAPI, teacherAPI } from "../../services/api";
 import AdminMobileShell from "../../components/AdminMobileShell";
 import StudentMobileShell from "../../components/StudentMobileShell";
 
 export default function UnifiedProfilePage() {
-  const navigate = useNavigate();
   const [userRole, setUserRole] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [me, setMe] = useState(null);
   const [form, setForm] = useState({ name: "", phone: "", avatarUrl: "" });
   
@@ -135,7 +133,7 @@ export default function UnifiedProfilePage() {
       const result = reader.result;
       if (typeof result === "string") {
         setForm((prev) => ({ ...prev, avatarUrl: result }));
-        setSuccess("");
+        setSuccessMessage("");
       }
     };
     reader.readAsDataURL(file);
@@ -144,7 +142,7 @@ export default function UnifiedProfilePage() {
   // Save profile handler
   const handleSave = async () => {
     setError("");
-    setSuccess("");
+    setSuccessMessage("");
     
     if (!form.name.trim()) {
       setError("Name is required");
@@ -161,7 +159,7 @@ export default function UnifiedProfilePage() {
       
       const user = res.data?.user || res.data || null;
       setMe(user);
-      setSuccess("Profile updated successfully");
+      setSuccessMessage("Profile updated successfully");
     } catch (err) {
       setError(err.response?.data?.error || "Failed to save profile");
     } finally {
@@ -351,11 +349,11 @@ export default function UnifiedProfilePage() {
         </div>
       )}
       
-      {success && (
+      {successMessage && (
         <div className={`p-3 bg-green-50 border border-green-200 text-green-700 rounded-xl text-sm ${
           userRole === "student" ? "" : "px-4"
         }`}>
-          ✓ {success}
+          ✓ {successMessage}
         </div>
       )}
 

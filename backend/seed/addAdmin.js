@@ -9,8 +9,8 @@ async function addAdmin() {
     await connectDB();
     console.log("✅ Connected to MongoDB");
 
-    const email = "avatars2610@gmail.com";
-    const password = "123456";
+    const email = process.env.ADMIN_EMAIL || "avatars2610@gmail.com";
+    const password = process.env.ADMIN_PASSWORD || "123456";
 
     // Remove any other admins (only one admin allowed)
     await User.updateMany(

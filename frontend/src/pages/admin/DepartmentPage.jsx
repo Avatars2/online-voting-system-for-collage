@@ -27,7 +27,20 @@ export default function DepartmentPage() {
   const [removeHod, setRemoveHod] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [phoneError, setPhoneError] = useState("");
+  const [hodNameError, setHodNameError] = useState("");
+  const [hodPasswordError, setHodPasswordError] = useState("");
   const [showHodPassword, setShowHodPassword] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  // Auto-hide success message after 2 seconds
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage("");
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
 
   const fetch = () => {
     adminAPI.departments.list().then((r) => {
@@ -53,16 +66,15 @@ export default function DepartmentPage() {
       .then((response) => {
         console.log("Department creation response:", response);
         const deptName = name.trim();
+        setSuccessMessage("Department created successfully!");
         setName("");
         fetch();
-        success(getMessage('success', 'DEPARTMENT_CREATED'));
       })
       .catch((err) => {
         console.error("Department creation error:", err);
         console.error("Error response:", err.response);
         const errorMessage = getApiErrorMessage(err);
         setError(errorMessage);
-        showError(errorMessage);
       })
       .finally(() => setLoading(false));
   };
@@ -77,9 +89,7 @@ export default function DepartmentPage() {
       const response = await adminAPI.departments.delete(departmentId);
       console.log(`Department ${departmentName} deleted successfully`, response.data);
       
-      // Show detailed deletion summary
-      const message = formatDeletionSummary(response.data, "Department");
-      success(message);
+      setSuccessMessage("Department deleted successfully!");
       
       // Refresh the departments list
       fetch();
@@ -87,7 +97,6 @@ export default function DepartmentPage() {
       console.error("Failed to delete department:", err);
       const errorMessage = getApiErrorMessage(err);
       setError(errorMessage);
-      showError(errorMessage);
     } finally {
       setDeleteLoading(false);
     }
@@ -103,6 +112,8 @@ export default function DepartmentPage() {
     setRemoveHod(false);
     setEmailError("");
     setPhoneError("");
+    setHodNameError("");
+    setHodPasswordError("");
     setEditModalOpen(true);
     setError("");
   };
@@ -117,6 +128,8 @@ export default function DepartmentPage() {
     setError("");
     setEmailError("");
     setPhoneError("");
+    setHodNameError("");
+    setHodPasswordError("");
 
     setUpdateLoading(true);
     
@@ -128,6 +141,22 @@ export default function DepartmentPage() {
     if (removeHod) {
       payload.removeHod = true;
     } else if (editHodEmail.trim()) {
+      // Validate HOD name (if provided)
+      if (editHodName.trim()) {
+        if (editHodName.trim().length < 2) {
+          setHodNameError("HOD name must be at least 2 characters long");
+          setUpdateLoading(false);
+          return;
+        }
+        
+        const nameRegex = /^[a-zA-Z\s]+$/;
+        if (!nameRegex.test(editHodName.trim())) {
+          setHodNameError("HOD name can only contain letters and spaces");
+          setUpdateLoading(false);
+          return;
+        }
+      }
+      
       // Validate email
       if (!validateEmail(editHodEmail)) {
         setEmailError("Please enter a valid email address");
@@ -145,16 +174,29 @@ export default function DepartmentPage() {
         }
       }
       
+      // Validate password
+      if (!editHodPassword.trim()) {
+        setHodPasswordError("Password is required");
+        setUpdateLoading(false);
+        return;
+      }
+      
+      if (editHodPassword.length < 6) {
+        setHodPasswordError("Password must be at least 6 characters long");
+        setUpdateLoading(false);
+        return;
+      }
+      
+      if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(editHodPassword)) {
+        setHodPasswordError("Password must contain both letters and numbers");
+        setUpdateLoading(false);
+        return;
+      }
+      
       payload.hodName = editHodName.trim() || undefined;
       payload.hodEmail = editHodEmail.trim();
       payload.hodPassword = editHodPassword.trim();
       payload.hodPhone = editHodPhone.trim() || undefined;
-      
-      if (!editHodPassword.trim()) {
-        setError(getMessage('error', 'INVALID_PASSWORD_FORMAT'));
-        setUpdateLoading(false);
-        return;
-      }
     }
     
     adminAPI.departments
@@ -167,11 +209,14 @@ export default function DepartmentPage() {
         fetch();
         
         if (removeHod) {
-          success(getMessage('success', 'DEPARTMENT_HOD_REMOVED'));
+          // HOD removed successfully
+          setSuccessMessage("HOD removed successfully!");
         } else if (editHodEmail.trim()) {
-          success(getMessage('success', 'DEPARTMENT_HOD_ASSIGNED'));
+          // HOD assigned successfully
+          setSuccessMessage("HOD registered successfully!");
         } else {
-          success(getMessage('success', 'DEPARTMENT_UPDATED'));
+          // Department updated successfully
+          setSuccessMessage("Department updated successfully!");
         }
       })
       .catch((err) => {
@@ -179,7 +224,6 @@ export default function DepartmentPage() {
         console.error("Error response:", err.response);
         const errorMessage = getApiErrorMessage(err);
         setError(errorMessage);
-        showError(errorMessage);
       })
       .finally(() => setUpdateLoading(false));
   };
@@ -195,6 +239,8 @@ export default function DepartmentPage() {
     setRemoveHod(false);
     setEmailError("");
     setPhoneError("");
+    setHodNameError("");
+    setHodPasswordError("");
     setError("");
   };
 
@@ -221,6 +267,30 @@ export default function DepartmentPage() {
     }
   };
 
+  const handleHodNameChange = (value) => {
+    setEditHodName(value);
+    // Only allow letters and spaces
+    const nameRegex = /^[a-zA-Z\s]+$/;
+    if (value.trim() && !nameRegex.test(value)) {
+      setHodNameError("HOD name can only contain letters and spaces");
+    } else if (value.trim().length < 2) {
+      setHodNameError("HOD name must be at least 2 characters long");
+    } else {
+      setHodNameError("");
+    }
+  };
+
+  const handleHodPasswordChange = (value) => {
+    setEditHodPassword(value);
+    if (value.trim() && value.length < 6) {
+      setHodPasswordError("Password must be at least 6 characters long");
+    } else if (value.trim() && !/(?=.*[a-zA-Z])(?=.*\d)/.test(value)) {
+      setHodPasswordError("Password must contain both letters and numbers");
+    } else {
+      setHodPasswordError("");
+    }
+  };
+
   return (
     <AdminMobileShell
       title="Departments"
@@ -229,43 +299,49 @@ export default function DepartmentPage() {
       backTo="/admin/dashboard"
     >
       {error && (
-        <div className="p-3 bg-red-50 text-red-700 rounded-xl text-sm border border-red-200">
+        <div className="p-3 bg-red-50 text-red-700 rounded-xl text-sm border border-red-200 mb-4">
           {error}
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-        <div className="font-bold text-gray-900 mb-3">New Department</div>
-        <div className="space-y-3">
+      {successMessage && (
+        <div className="p-3 bg-green-50 text-green-700 rounded-xl text-sm border border-green-200 mb-4">
+          ✓ {successMessage}
+        </div>
+      )}
+
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 lg:p-10 mb-6">
+        <div className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">New Department</div>
+        <div className="space-y-4 sm:space-y-6">
           <input
             type="text"
             placeholder="Department Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="input-base"
+            className="input-base text-base sm:text-lg px-4 py-3 sm:px-6 sm:py-4"
             disabled={loading}
           />
           
-          <button onClick={handleCreate} disabled={loading} className="btn-primary w-full">
+          <button onClick={handleCreate} disabled={loading} className="btn-primary w-full text-base sm:text-lg py-3 sm:py-4 hover:scale-[1.02] transition-transform">
             {loading ? "Creating..." : "Create Department"}
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-        <div className="flex justify-between items-center mb-3">
-          <div className="font-bold text-gray-900">Active Departments</div>
-          <div className="text-xs font-semibold text-gray-500">{departments.length} TOTAL</div>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 lg:p-10">
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <div className="text-lg sm:text-xl font-bold text-gray-900">Active Departments</div>
+          <div className="text-sm font-semibold text-gray-500">{departments.length} TOTAL</div>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-3 sm:space-y-4">
           {departments.map((d) => (
             <div 
               key={d._id} 
-              className="bg-white border rounded-xl p-4 hover:bg-gray-50 hover:border-blue-200 transition"
+              className="bg-white border rounded-xl p-4 sm:p-6 hover:bg-gray-50 hover:border-blue-200 transition"
             >
               <div className="flex justify-between items-start">
                 <div className="flex-1 cursor-pointer" onClick={() => navigate(`/departments/${d._id}`)}>
-                  <p className="font-semibold text-gray-900">{d.name}</p>
+                  <p className="font-semibold text-gray-900 text-base sm:text-lg">{d.name}</p>
                   <div className="mt-2">
                     <p className="text-sm text-gray-600">
                       HOD: <span className="font-medium text-gray-900">
@@ -273,7 +349,7 @@ export default function DepartmentPage() {
                       </span>
                     </p>
                     {d.hod?.email && (
-                      <p className="text-xs text-gray-500 mt-1">{d.hod.email}</p>
+                      <p className="text-sm text-gray-500 mt-1">{d.hod.email}</p>
                     )}
                   </div>
                 </div>
@@ -288,7 +364,7 @@ export default function DepartmentPage() {
                       e.stopPropagation();
                       handleEditDepartment(d);
                     }}
-                    className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-200 transition-colors"
+                    className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors"
                   >
                     ✏️ Edit
                   </button>
@@ -298,7 +374,7 @@ export default function DepartmentPage() {
                       handleDeleteDepartment(d._id, d.name);
                     }}
                     disabled={deleteLoading}
-                    className="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-medium hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {deleteLoading ? "..." : "🗑️ Delete"}
                   </button>
@@ -326,12 +402,6 @@ export default function DepartmentPage() {
             </button>
 
             <h2 className="text-xl font-bold text-gray-900 mb-4">Edit Department</h2>
-            
-            {error && (
-              <div className="p-3 bg-red-50 text-red-700 rounded-xl text-sm border border-red-200 mb-4">
-                {error}
-              </div>
-            )}
 
             <div className="space-y-4">
               <div>
@@ -374,6 +444,13 @@ export default function DepartmentPage() {
                         id="removeHod"
                         checked={removeHod}
                         onChange={(e) => {
+                          if (e.target.checked) {
+                            // Show confirmation popup before removing HOD
+                            const hodName = editingDepartment?.hod?.name || "the current HOD";
+                            if (!window.confirm(`Are you sure you want to remove ${hodName} from this department?`)) {
+                              return; // Don't check the box if user cancels
+                            }
+                          }
                           setRemoveHod(e.target.checked);
                           if (e.target.checked) {
                             setEditHodName("");
@@ -391,9 +468,12 @@ export default function DepartmentPage() {
                     </div>
                   )}
                   
-                  {!removeHod && (
+                  {/* Show HOD registration form only if NO HOD exists OR if "Remove HOD" is checked */}
+                  {(!editingDepartment?.hod || removeHod) && (
                     <>
-                      <p className="text-xs text-gray-500 font-medium">Register New HOD (Optional):</p>
+                      <p className="text-xs text-gray-500 font-medium">
+                        {removeHod ? "Register New HOD (after removing current):" : "Register New HOD:"}
+                      </p>
                       
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -402,11 +482,14 @@ export default function DepartmentPage() {
                         <input
                           type="text"
                           value={editHodName}
-                          onChange={(e) => setEditHodName(e.target.value)}
-                          className="input-base"
+                          onChange={(e) => handleHodNameChange(e.target.value)}
+                          className={`input-base ${hodNameError ? 'border-red-300 focus:border-red-500' : ''}`}
                           disabled={updateLoading}
                           placeholder="HOD Full Name"
                         />
+                        {hodNameError && (
+                          <p className="mt-1 text-xs text-red-600">{hodNameError}</p>
+                        )}
                       </div>
 
                       <div>
@@ -434,8 +517,8 @@ export default function DepartmentPage() {
                           <input
                             type={showHodPassword ? "text" : "password"}
                             value={editHodPassword}
-                            onChange={(e) => setEditHodPassword(e.target.value)}
-                            className="input-base pr-12"
+                            onChange={(e) => handleHodPasswordChange(e.target.value)}
+                            className={`input-base pr-12 ${hodPasswordError ? 'border-red-300 focus:border-red-500' : ''}`}
                             disabled={updateLoading}
                             placeholder="Enter password"
                           />
@@ -457,6 +540,9 @@ export default function DepartmentPage() {
                             )}
                           </button>
                         </div>
+                        {hodPasswordError && (
+                          <p className="mt-1 text-xs text-red-600">{hodPasswordError}</p>
+                        )}
                       </div>
 
                       <div>

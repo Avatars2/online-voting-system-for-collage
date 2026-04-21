@@ -23,6 +23,7 @@ export default function UnifiedNoticePage() {
   const [department, setDepartment] = useState(null);
   const [classData, setClassData] = useState(null);
   const [user, setUser] = useState(null);
+  const [successMessage, setSuccessMessage] = useState("");
 
   // Get current user role and data
   useEffect(() => {
@@ -151,10 +152,15 @@ export default function UnifiedNoticePage() {
     
     setUploading(true);
     try {
-      const uploadUrl = userRole === "teacher" ? '/api/notices/upload' : 'http://localhost:5001/api/notices/upload';
+      const uploadUrl = 'http://localhost:5001/api/notices/upload';
+      const token = localStorage.getItem("token");
       const response = await fetch(uploadUrl, {
         method: 'POST',
-        body: formData
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        credentials: 'include'
       });
       
       const data = await response.json();
@@ -165,7 +171,14 @@ export default function UnifiedNoticePage() {
         setError(data.error || "Upload failed");
       }
     } catch (err) {
-      setError("Upload failed");
+      console.error("Upload error:", err);
+      if (err.response) {
+        setError(err.response.data?.error || "Upload failed");
+      } else if (err.message) {
+        setError("Network error - please check your connection");
+      } else {
+        setError("Upload failed - please try again");
+      }
     } finally {
       setUploading(false);
     }
@@ -195,15 +208,14 @@ export default function UnifiedNoticePage() {
       
       await api.notices.create(noticeData);
       
+      setSuccessMessage("Notice published successfully!");
       setTitle("");
       setBody("");
       setPdfFile(null);
       setPdfUrl("");
       fetchRoleSpecificData();
-      success("Notice published successfully!");
     } catch (err) {
       setError(err.response?.data?.error || "Failed to publish");
-      showError(err.response?.data?.error || "Failed to publish");
     } finally {
       setPublishing(false);
     }
@@ -273,34 +285,40 @@ export default function UnifiedNoticePage() {
         </div>
       )}
 
+      {successMessage && (
+        <div className="p-3 bg-green-50 text-green-700 rounded-xl text-sm border border-green-200">
+          ✓ {successMessage}
+        </div>
+      )}
+
       {/* Publish Section - Only for roles that can create notices */}
       {canPublish && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-          <div className="font-bold text-gray-900 mb-3">Draft New Notice</div>
-          <div className="space-y-3">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 lg:p-10 xl:p-12">
+          <div className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">Draft New Notice</div>
+          <div className="space-y-4 sm:space-y-6">
             <input
               type="text"
               placeholder={`Notice Title (e.g. ${userRole === 'teacher' ? 'Class Test Alert' : 'Holiday Alert'})`}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="input-base"
+              className="input-base text-base sm:text-lg px-4 py-3 sm:px-6 sm:py-4"
             />
             <textarea
               placeholder="Write your message here..."
               value={body}
               onChange={(e) => setBody(e.target.value)}
               rows={4}
-              className="input-base h-28 resize-none"
+              className="input-base h-32 sm:h-40 resize-none text-base sm:text-lg px-4 py-3 sm:px-6 sm:py-4"
             />
             
-            <div className="border-2 border-dashed border-gray-300 rounded-xl p-4">
-              <label className="block">
+            <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 sm:p-8 lg:p-10 hover:border-gray-400 transition-colors">
+              <label className="block cursor-pointer">
                 <div className="text-center">
-                  <div className="text-2xl mb-2">📄</div>
-                  <div className="text-sm text-gray-600 mb-2">
+                  <div className="text-3xl sm:text-4xl mb-3 sm:mb-4">??</div>
+                  <div className="text-base sm:text-lg text-gray-600 mb-3">
                     {uploading ? "Uploading..." : pdfFile ? pdfFile.name : "Click to upload PDF (optional)"}
                   </div>
-                  <div className="text-xs text-gray-500">Max size: 10MB</div>
+                  <div className="text-sm text-gray-500">Max size: 10MB</div>
                   <input
                     type="file"
                     accept=".pdf"
@@ -312,17 +330,10 @@ export default function UnifiedNoticePage() {
               </label>
             </div>
             
-            {pdfUrl && (
-              <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
-                <p className="text-sm text-green-700">✅ PDF uploaded successfully</p>
-                <p className="text-xs text-green-600 mt-1">File will be attached to notice</p>
-              </div>
-            )}
-            
             <button 
               onClick={handlePublish} 
               disabled={publishing || uploading} 
-              className="btn-primary w-full"
+              className="btn-primary w-full text-base sm:text-lg py-3 sm:py-4 px-6 sm:px-8 hover:scale-[1.02] transition-transform"
             >
               {publishing ? "Publishing..." : uploading ? "Uploading..." : "Publish Broadcast"}
             </button>
@@ -331,12 +342,12 @@ export default function UnifiedNoticePage() {
       )}
 
       {/* Notices Display Section */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-        <div className="flex justify-between items-center mb-3">
-          <div className="font-bold text-gray-900">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 lg:p-10 xl:p-12">
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <div className="text-lg sm:text-xl font-bold text-gray-900">
             {userRole === "student" ? "All Notices" : userRole === "hod" ? "All Notices" : userRole === "teacher" ? "Class Notices" : "Live Notices"}
           </div>
-          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+          <span className={`px-3 py-2 rounded-full text-sm font-semibold ${
             userRole === "admin" ? "bg-red-50 text-red-700" :
             userRole === "hod" ? "bg-green-50 text-green-700" :
             userRole === "teacher" ? "bg-purple-50 text-purple-700" :
@@ -349,37 +360,41 @@ export default function UnifiedNoticePage() {
         {/* Role-specific info message */}
         
         {loading ? (
-          <p className="text-gray-500 text-sm">Loading notices...</p>
+          <p className="text-gray-500 text-sm animate-pulse">Loading notices...</p>
         ) : notices.length === 0 ? (
-          <div className="text-center py-8">
-            <div className="text-4xl mb-2">📢</div>
+          <div className="text-center py-8 animate-fadeIn">
+            <div className="text-4xl mb-2 animate-bounce">?</div>
             <p className="text-gray-500 text-sm">No notices yet</p>
             {canPublish && (
               <p className="text-xs text-gray-400 mt-1">Create your first notice above</p>
             )}
           </div>
         ) : (
-          <div className="space-y-3">
-            {notices.map((n) => (
-              <div key={n._id} className="p-4 border rounded-xl bg-gray-50">
-                <h3 className="font-semibold text-gray-900">{n.title}</h3>
-                <p className="text-sm text-gray-600 mt-1">{n.body || ""}</p>
-                {n.attachment && (
-                  <div className="mt-2">
-                    <a 
-                      href={userRole === "teacher" ? n.attachment : `http://localhost:5001${n.attachment}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
-                    >
-                      📄 {n.attachment.split('/').pop()}
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    </a>
+          <div className="space-y-4 sm:space-y-6">
+            {notices.map((n, index) => (
+              <div key={n._id} className="p-6 sm:p-8 border rounded-xl bg-gray-50 hover:bg-gray-100 transition-all duration-300 hover:scale-[1.01] hover:shadow-md animate-fadeInUp" style={{ animationDelay: `${index * 100}ms` }}>
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <h3 className="text-lg sm:text-xl font-semibold text-gray-900">{n.title}</h3>
+                    <p className="text-base sm:text-lg text-gray-600 mt-2">{n.body || ""}</p>
+                    {n.attachment && (
+                      <div className="mt-2">
+                        <a 
+                          href={`http://localhost:5001${n.attachment}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 text-base sm:text-lg font-medium"
+                        >
+                          📄 {n.attachment.split('/').pop()}
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      </div>
+                    )}
                   </div>
-                )}
-                <p className="text-xs text-gray-400 mt-2">{formatTime(n.createdAt)}</p>
+                  <p className="text-sm text-gray-400 mt-2">{formatTime(n.createdAt)}</p>
+                </div>
               </div>
             ))}
           </div>

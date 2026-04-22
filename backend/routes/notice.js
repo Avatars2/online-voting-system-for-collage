@@ -143,8 +143,8 @@ router.post('/upload', protect, upload.single('pdf'), async (req, res) => {
   }
 });
 
-// PDF download endpoint
-router.get('/download/:noticeId', protect, async (req, res) => {
+// PDF download endpoint - public access for published notices
+router.get('/download/:noticeId', async (req, res) => {
   try {
     const notice = await Notice.findById(req.params.noticeId);
     

@@ -164,7 +164,8 @@ export default function UnifiedNoticePage() {
       
       const data = await response.json();
       if (response.ok) {
-        setPdfUrl(data.url);
+        // Store the PDF data for later use when creating notice
+        setPdfUrl(data.base64Data);
         setError("");
       } else {
         setError(data.error || "Upload failed");
@@ -202,7 +203,14 @@ export default function UnifiedNoticePage() {
       const noticeData = {
         title: title.trim(), 
         body: body.trim(),
-        attachment: pdfUrl
+        attachment: pdfUrl, // Legacy field for backward compatibility
+        pdfData: pdfUrl ? {
+          filename: pdfFile ? `pdf-${Date.now()}-${pdfFile.name}` : '',
+          originalName: pdfFile ? pdfFile.name : '',
+          mimeType: 'application/pdf',
+          size: pdfFile ? pdfFile.size : 0,
+          base64Data: pdfUrl
+        } : null
       };
       
       await api.notices.create(noticeData);
@@ -376,15 +384,15 @@ export default function UnifiedNoticePage() {
                   <div className="flex-1">
                     <h3 className="text-lg sm:text-xl font-semibold text-gray-900">{n.title}</h3>
                     <p className="text-base sm:text-lg text-gray-600 mt-2">{n.body || ""}</p>
-                    {n.attachment && (
+                    {(n.attachment || n.pdfData) && (
                       <div className="mt-2">
                         <a 
-                          href={`${import.meta.env.VITE_API_URL.replace('/api', '')}${n.attachment}`}
+                          href={n.pdfData ? `${import.meta.env.VITE_API_URL}/notices/download/${n._id}` : `${import.meta.env.VITE_API_URL.replace('/api', '')}${n.attachment}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 text-base sm:text-lg font-medium"
                         >
-                          📄 {n.attachment.split('/').pop()}
+                          📄 {n.pdfData ? n.pdfData.originalName : n.attachment.split('/').pop()}
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                           </svg>

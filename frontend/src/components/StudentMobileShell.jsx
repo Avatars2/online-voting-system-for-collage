@@ -20,22 +20,24 @@ export default function StudentMobileShell({
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false); // Start closed for mobile
-  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024); // Desktop detection
+  const [isDesktop, setIsDesktop] = useState(false); // Start as mobile, will be updated
 
   const activePath = useMemo(() => location.pathname, [location.pathname]);
 
-  // Detect screen size and set desktop state
+  // Initialize screen size and set proper state on mount and resize
   useEffect(() => {
     const checkScreenSize = () => {
       const desktop = window.innerWidth >= 1024; // lg: breakpoint
+      console.log('Student screen size check - desktop:', desktop, 'width:', window.innerWidth);
       setIsDesktop(desktop);
-      // Auto-close mobile menu when switching to desktop
-      if (desktop) {
-        setSidebarOpen(false);
-      }
+      // Always close mobile menu on resize or initial load
+      setSidebarOpen(false);
     };
 
+    // Initial check
     checkScreenSize();
+    
+    // Add resize listener
     window.addEventListener('resize', checkScreenSize);
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
@@ -129,13 +131,22 @@ export default function StudentMobileShell({
       {!isDesktop && (
         <div className="fixed top-4 left-4 z-50">
           <button
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
               console.log('Student hamburger clicked, current state:', sidebarOpen);
               setSidebarOpen(!sidebarOpen);
+              // Fallback: force state change if needed
+              setTimeout(() => {
+                if (!sidebarOpen) {
+                  setSidebarOpen(true);
+                }
+              }, 100);
             }}
-            className="w-12 h-12 bg-white/95 backdrop-blur rounded-full shadow-lg flex items-center justify-center hover:bg-gray-100 transition-colors"
+            className="w-12 h-12 bg-white/95 backdrop-blur rounded-full shadow-lg flex items-center justify-center hover:bg-gray-100 transition-colors cursor-pointer"
+            aria-label="Toggle mobile menu"
           >
-            <span className="text-2xl">&#9776;</span>
+            <span className="text-2xl select-none">&#9776;</span>
           </button>
         </div>
       )}

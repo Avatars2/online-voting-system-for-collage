@@ -3,7 +3,15 @@ import mongoose from "mongoose";
 const noticeSchema = new mongoose.Schema({
   title: { type: String, required: true },
   body: { type: String },
-  attachment: { type: String },
+  attachment: { type: String }, // Legacy field for backward compatibility
+  // PDF attachment fields for base64 storage
+  pdfData: {
+    filename: { type: String },
+    originalName: { type: String },
+    mimeType: { type: String, default: 'application/pdf' },
+    size: { type: Number },
+    base64Data: { type: String } // Base64 encoded PDF data
+  },
   audience: { 
     type: String, 
     enum: ["all", "student", "students", "admins", "department_students", "class_students"], 

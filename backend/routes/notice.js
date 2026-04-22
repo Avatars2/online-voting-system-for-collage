@@ -8,16 +8,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Configure multer for PDF uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '../uploads'));
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'pdf-' + uniqueSuffix + '-' + file.originalname);
-  }
-});
+// Configure multer for PDF uploads using memory storage for Vercel compatibility
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage: storage,
@@ -130,19 +122,53 @@ router.post('/upload', protect, upload.single('pdf'), async (req, res) => {
       return res.status(400).json({ error: 'No PDF file uploaded' });
     }
     
-    const fileUrl = `/uploads/${req.file.filename}`;
-    console.log('PDF uploaded successfully:', fileUrl);
+    // Convert file to base64 for storage in database
+    const base64Data = req.file.buffer.toString('base64');
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const filename = 'pdf-' + uniqueSuffix + '-' + req.file.originalname;
+    
+    console.log('PDF uploaded successfully:', filename);
     
     res.json({ 
       success: true, 
-      url: fileUrl,
-      filename: req.file.filename,
+      filename: filename,
       originalName: req.file.originalname,
-      size: req.file.size
+      size: req.file.size,
+      mimeType: req.file.mimetype,
+      base64Data: base64Data // Store base64 data for database storage
     });
   } catch (err) {
     console.error('PDF upload error:', err);
     res.status(500).json({ error: 'File upload failed' });
+  }
+});
+
+// PDF download endpoint
+router.get('/download/:noticeId', protect, async (req, res) => {
+  try {
+    const notice = await Notice.findById(req.params.noticeId);
+    
+    if (!notice) {
+      return res.status(404).json({ error: 'Notice not found' });
+    }
+    
+    if (!notice.pdfData || !notice.pdfData.base64Data) {
+      return res.status(404).json({ error: 'PDF not found for this notice' });
+    }
+    
+    // Convert base64 back to buffer
+    const pdfBuffer = Buffer.from(notice.pdfData.base64Data, 'base64');
+    
+    // Set appropriate headers
+    res.setHeader('Content-Type', notice.pdfData.mimeType || 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${notice.pdfData.originalName}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    
+    // Send the PDF data
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('PDF download error:', err);
+    res.status(500).json({ error: 'Failed to download PDF' });
   }
 });
 

@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "../../hooks/useToast";
 import { adminAPI, hodAPI, teacherAPI, studentAPI, authAPI } from "../../services/api";
 import AdminMobileShell from "../../components/AdminMobileShell";
-import StudentMobileShell from "../../components/StudentMobileShell";
 
 export default function UnifiedElectionCreationPage() {
 
@@ -608,7 +607,7 @@ export default function UnifiedElectionCreationPage() {
   });
 
 
-  const Shell = userRole === "student" ? StudentMobileShell : AdminMobileShell;
+  const Shell = AdminMobileShell;
 
   return (
 

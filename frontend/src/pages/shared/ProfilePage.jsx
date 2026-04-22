@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { authAPI, hodAPI, teacherAPI } from "../../services/api";
 import AdminMobileShell from "../../components/AdminMobileShell";
-import StudentMobileShell from "../../components/StudentMobileShell";
 
 export default function UnifiedProfilePage() {
   const [userRole, setUserRole] = useState("");
@@ -233,7 +232,7 @@ export default function UnifiedProfilePage() {
   };
 
   const roleConfig = getRoleConfig();
-  const ShellComponent = userRole === "student" ? StudentMobileShell : AdminMobileShell;
+  const ShellComponent = AdminMobileShell;
 
   // Render account information fields based on role
   const renderAccountInfo = () => {

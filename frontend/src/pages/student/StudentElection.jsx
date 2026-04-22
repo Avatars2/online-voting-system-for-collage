@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { studentAPI } from "../../services/api";
-import StudentMobileShell from "../../components/StudentMobileShell";
+import AdminMobileShell from "../../components/AdminMobileShell";
 
 export default function StudentElection() {
   const navigate = useNavigate();
@@ -232,21 +232,21 @@ export default function StudentElection() {
 
   if (loading) {
     return (
-      <StudentMobileShell title="Available Elections" subtitle="Loading...">
+      <AdminMobileShell title="Available Elections" subtitle="Loading...">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-emerald-600 border-t-transparent mx-auto mb-4"></div>
             <div className="text-gray-600 text-lg sm:text-xl">Loading...</div>
           </div>
         </div>
-      </StudentMobileShell>
+      </AdminMobileShell>
     );
   }
 
   const { active, upcoming, closed } = categorizeElections();
 
   return (
-    <StudentMobileShell
+    <AdminMobileShell
       title="Available Elections"
       subtitle="Participate in voting"
       backTo="/student/dashboard"
@@ -286,6 +286,6 @@ export default function StudentElection() {
           </div>
         </div>
       )}
-    </StudentMobileShell>
+    </AdminMobileShell>
   );
 }

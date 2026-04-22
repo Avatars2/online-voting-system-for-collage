@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { adminAPI, hodAPI, teacherAPI, studentAPI, noticesAPI } from "../../services/api";
 import AdminMobileShell from "../../components/AdminMobileShell";
-import StudentMobileShell from "../../components/StudentMobileShell";
 import { useToast } from "../../components/UI/Toast";
 
 export default function UnifiedNoticePage() {
@@ -270,7 +269,7 @@ export default function UnifiedNoticePage() {
   const headerConfig = getHeaderConfig();
 
   // Choose shell component based on role
-  const ShellComponent = userRole === "student" ? StudentMobileShell : AdminMobileShell;
+  const ShellComponent = AdminMobileShell;
 
   return (
     <ShellComponent

@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { adminAPI, hodAPI, teacherAPI, studentAPI, authAPI } from "../../services/api";
 import AdminMobileShell from "../../components/AdminMobileShell";
-import StudentMobileShell from "../../components/StudentMobileShell";
 
 export default function UnifiedResultsPage() {
   const navigate = useNavigate();
@@ -230,7 +229,7 @@ export default function UnifiedResultsPage() {
   };
 
   const roleConfig = getRoleConfig();
-  const ShellComponent = userRole === "student" ? StudentMobileShell : AdminMobileShell;
+  const ShellComponent = AdminMobileShell;
   const { completed, active, upcoming } = categorizeElections();
 
   // Handle navigation to results detail

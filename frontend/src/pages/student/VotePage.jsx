@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { studentAPI } from "../../services/api";
-import StudentMobileShell from "../../components/StudentMobileShell";
+import AdminMobileShell from "../../components/AdminMobileShell";
 import OTPVerification from "../../components/OTPVerification";
 
 export default function VotePage() {
@@ -142,20 +142,20 @@ export default function VotePage() {
 
   if (loading) {
     return (
-      <StudentMobileShell title="Vote" subtitle="Loading..." backTo="/student/elections">
+      <AdminMobileShell title="Vote" subtitle="Loading..." backTo="/student/elections">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-emerald-600 border-t-transparent mx-auto mb-4"></div>
             <div className="text-gray-600 text-lg sm:text-xl">Loading...</div>
           </div>
         </div>
-      </StudentMobileShell>
+      </AdminMobileShell>
     );
   }
 
   if (message && candidates.length === 0) {
     return (
-      <StudentMobileShell title="Vote" subtitle="Select candidate" backTo="/student/elections">
+      <AdminMobileShell title="Vote" subtitle="Select candidate" backTo="/student/elections">
         <div className={`p-3 border rounded-xl text-sm ${
           messageType === "success" 
             ? "bg-green-50 border-green-200 text-green-700" 
@@ -163,13 +163,13 @@ export default function VotePage() {
         }`}>
           {message}
         </div>
-      </StudentMobileShell>
+      </AdminMobileShell>
     );
   }
 
   return (
     <>
-      <StudentMobileShell
+      <AdminMobileShell
         title="Select Candidate"
         subtitle={election?.title || "Election"}
         backTo="/student/elections"
@@ -242,7 +242,7 @@ export default function VotePage() {
             <p className="text-gray-600">Your vote has been successfully recorded.</p>
           </div>
         )}
-      </StudentMobileShell>
+      </AdminMobileShell>
 
       {/* OTP Verification Modal */}
       {showOTP && (

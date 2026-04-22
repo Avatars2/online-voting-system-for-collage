@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { adminAPI, hodAPI, teacherAPI, studentAPI, noticesAPI, authAPI } from "../../services/api";
 import AdminMobileShell from "../../components/AdminMobileShell";
-import StudentMobileShell from "../../components/StudentMobileShell";
 import { StatCard, ElectionCard } from "../../components/UI/EnhancedCard";
 import { useToast } from "../../components/UI/Toast";
 
@@ -350,7 +349,7 @@ export default function UnifiedDashboardPage() {
   };
 
   const roleConfig = getRoleConfig();
-  const ShellComponent = userRole === "student" ? StudentMobileShell : AdminMobileShell;
+  const ShellComponent = AdminMobileShell;
 
   // Handle election clicks based on role
   const handleElectionClick = (election) => {

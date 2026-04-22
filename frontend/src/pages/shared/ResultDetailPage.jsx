@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { adminAPI, hodAPI, teacherAPI, studentAPI, authAPI } from "../../services/api";
 import AdminMobileShell from "../../components/AdminMobileShell";
-import StudentMobileShell from "../../components/StudentMobileShell";
 import { useToast } from "../../components/UI/Toast";
 
 export default function UnifiedResultDetailPage() {
@@ -211,7 +210,7 @@ export default function UnifiedResultDetailPage() {
           subtitle: "View results",
           headerColor: "bg-gradient-to-r from-purple-600 to-pink-600",
           backTo: "/student/results",
-          shellComponent: StudentMobileShell
+          shellComponent: AdminMobileShell
         };
       default:
         return {

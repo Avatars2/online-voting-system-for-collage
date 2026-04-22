@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { authAPI } from "../../services/api";
 import AdminMobileShell from "../../components/AdminMobileShell";
-import StudentMobileShell from "../../components/StudentMobileShell";
 import { useToast } from "../../components/UI/Toast";
 import { validatePassword } from "../../utils/validation";
 
@@ -257,7 +256,7 @@ export default function ResetPassword() {
   const roleConfig = getRoleConfig();
 
   // Use appropriate shell based on role
-  const Shell = role === "student" ? StudentMobileShell : AdminMobileShell;
+  const Shell = AdminMobileShell;
   const shellProps = role === "student" 
     ? { title: roleConfig.title, subtitle: roleConfig.subtitle, backTo: roleConfig.backPath }
     : { title: roleConfig.title, subtitle: roleConfig.subtitle, headerColor: roleConfig.headerColor, backTo: roleConfig.backPath };

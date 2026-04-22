@@ -5,6 +5,7 @@ import { ButtonSkeleton, FormSkeleton } from "../../components/LoadingSkeleton";
 import EnhancedInput from "../../components/UI/EnhancedInput";
 import EnhancedButton from "../../components/UI/EnhancedButton";
 import { useToast } from "../../components/UI/Toast";
+import { PageStatePersistence } from "../../utils/pageStatePersistence.js";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -113,7 +114,15 @@ export default function Login() {
       localStorage.setItem("role", role || "");
       localStorage.setItem("user", JSON.stringify({ role }));
       
-      navigate(redirect);
+      // Try to get last visited page for this role
+      const lastVisitedPage = PageStatePersistence.getLastVisitedPage(role || "");
+      
+      // Use last visited page or fallback to redirect from backend
+      const targetPage = lastVisitedPage ? lastVisitedPage.path : redirect;
+      
+      console.log('Redirecting to:', targetPage, '(last visited:', lastVisitedPage?.path, ')');
+      
+      navigate(targetPage);
       
     } catch (err) {
       console.error("Login error:", err);

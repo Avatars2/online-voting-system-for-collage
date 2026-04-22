@@ -152,20 +152,27 @@ router.get('/download/:noticeId', async (req, res) => {
       return res.status(404).json({ error: 'Notice not found' });
     }
     
-    if (!notice.pdfData || !notice.pdfData.base64Data) {
-      return res.status(404).json({ error: 'PDF not found for this notice' });
+    // Handle both legacy attachment and new pdfData
+    if (notice.pdfData && notice.pdfData.base64Data) {
+      // New format: PDF stored as base64 in database
+      const pdfBuffer = Buffer.from(notice.pdfData.base64Data, 'base64');
+      res.setHeader('Content-Type', notice.pdfData.mimeType || 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${notice.pdfData.originalName}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.send(pdfBuffer);
+      return;
     }
     
-    // Convert base64 back to buffer
-    const pdfBuffer = Buffer.from(notice.pdfData.base64Data, 'base64');
+    if (notice.attachment) {
+      // Legacy format: Check if attachment exists (though this won't work in Vercel)
+      return res.status(404).json({ 
+        error: 'Legacy PDF format not supported in serverless environment',
+        message: 'Please re-upload the PDF to use the new storage format'
+      });
+    }
     
-    // Set appropriate headers
-    res.setHeader('Content-Type', notice.pdfData.mimeType || 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${notice.pdfData.originalName}"`);
-    res.setHeader('Content-Length', pdfBuffer.length);
-    
-    // Send the PDF data
-    res.send(pdfBuffer);
+    // No PDF found
+    return res.status(404).json({ error: 'PDF not found for this notice' });
   } catch (err) {
     console.error('PDF download error:', err);
     res.status(500).json({ error: 'Failed to download PDF' });

@@ -22,13 +22,22 @@ const HOD_MENU = [
 ];
 
 const TEACHER_MENU = [
-  { label: "Dashboard", path: "/teacher/dashboard", icon: "🏠" },
-  { label: "Profile", path: "/teacher/profile", icon: "👤" },
+  { label: "Dashboard", path: "/teacher/dashboard", icon: "🏠" }, // emoji
+  { label: "Profile", path: "/teacher/profile", icon: "👤" }, // emoji
   { label: "Change Password", path: "/teacher/reset-password", icon: "🔒" },
   { label: "Students", path: "/teacher/students", icon: "👥" },
   { label: "Elections", path: "/teacher/elections", icon: "🗳️" },
   { label: "Results", path: "/teacher/results", icon: "📊" },
   { label: "Notices", path: "/teacher/notices", icon: "🔔" },
+];
+
+const STUDENT_MENU = [
+  { label: "Dashboard", path: "/student/dashboard", icon: "🏠" }, // emoji
+  { label: "Profile", path: "/student/profile", icon: "👤" }, // emoji
+  { label: "Change Password", path: "/student/reset-password", icon: "🔒" },
+  { label: "Elections", path: "/student/elections", icon: "🗳️" },
+  { label: "Results", path: "/student/results", icon: "🏆" },
+  { label: "Notices", path: "/student/notices", icon: "📢" },
 ];
 
 export default function AdminMobileShell({
@@ -72,18 +81,21 @@ export default function AdminMobileShell({
   const menuItems = useMemo(() => {
     if (userRole === "hod") return HOD_MENU;
     if (userRole === "teacher") return TEACHER_MENU;
+    if (userRole === "student") return STUDENT_MENU;
     return ADMIN_MENU;
   }, [userRole]);
   
   const profilePath = useMemo(() => {
     if (userRole === "hod") return "/hod/profile";
     if (userRole === "teacher") return "/teacher/profile";
+    if (userRole === "student") return "/student/profile";
     return "/admin/profile";
   }, [userRole]);
   
   const menuTitle = useMemo(() => {
     if (userRole === "hod") return "HOD Menu";
     if (userRole === "teacher") return "Teacher Menu";
+    if (userRole === "student") return "Student Menu";
     return "Admin Menu";
   }, [userRole]);
   
@@ -91,6 +103,7 @@ export default function AdminMobileShell({
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     if (userRole === "hod") return user.name?.charAt(0)?.toUpperCase() || "H";
     if (userRole === "teacher") return user.name?.charAt(0)?.toUpperCase() || "T";
+    if (userRole === "student") return user.name?.charAt(0)?.toUpperCase() || "S";
     return user.name?.charAt(0)?.toUpperCase() || "A";
   }, [userRole]);
 

@@ -50,21 +50,16 @@ export default function AdminMobileShell({
     const checkScreenSize = () => {
       const desktop = window.innerWidth >= 1024; // lg: breakpoint
       setIsDesktop(desktop);
+      // Auto-close mobile menu when switching to desktop
+      if (desktop) {
+        setSidebarOpen(false);
+      }
     };
 
     checkScreenSize();
     window.addEventListener('resize', checkScreenSize);
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
-
-  // Set sidebar state based on screen size
-  useEffect(() => {
-    if (isDesktop && !sidebarOpen) {
-      setSidebarOpen(true);
-    } else if (!isDesktop && sidebarOpen) {
-      setSidebarOpen(false);
-    }
-  }, [isDesktop]);
   
   // Determine user role and menu
   const userRole = useMemo(() => {
@@ -265,16 +260,16 @@ export default function AdminMobileShell({
 
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && !isDesktop && (
-        <div className="fixed inset-0 z-50 flex">
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => {
-              console.log('Overlay clicked, closing sidebar');
-              setSidebarOpen(false);
-            }}
+        <div className="fixed inset-0 z-50">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setSidebarOpen(false)}
           />
-          <div className="absolute left-0 top-0 h-full w-64 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out" 
-               style={{ transform: sidebarOpen ? 'translateX(0%)' : 'translateX(-100%)' }}>
+          
+          {/* Sidebar */}
+          <div className="absolute left-0 top-0 h-full w-64 bg-white shadow-xl">
+            {/* Sidebar Header */}
             <div className={`${headerColor} p-6`}>
               <div className="text-center">
                 <div className="w-16 h-16 rounded-full bg-white/20 ring-2 ring-white/40 overflow-hidden flex items-center justify-center mx-auto mb-3">
@@ -284,6 +279,7 @@ export default function AdminMobileShell({
               </div>
             </div>
             
+            {/* Navigation Menu */}
             <div className="flex-1 p-4 space-y-2">
               {menuItems.map((item) => {
                 const isActive = activePath === item.path;
@@ -294,82 +290,39 @@ export default function AdminMobileShell({
                       navigate(item.path);
                       setSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 relative overflow-hidden group ${
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 ${
                       isActive 
-                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg scale-[1.02]" 
-                        : "hover:bg-gray-100 text-gray-800 hover:scale-[1.01] hover:shadow-md"
+                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg" 
+                        : "hover:bg-gray-100 text-gray-800"
                     }`}
                   >
-                    {/* Active indicator */}
-                    {isActive && (
-                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-white/80 rounded-r-full"></div>
-                    )}
+                    {/* Icon */}
+                    <span className={`text-xl ${
+                      isActive ? "text-white" : "text-gray-700"
+                    }`}>{item.icon}</span>
                     
-                    {/* Icon container with hover effect */}
-                    <div className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 ${
-                      isActive 
-                        ? "bg-white/20" 
-                        : "bg-gray-100 group-hover:bg-gray-200"
-                    }`}>
-                      <span className={`text-xl transition-transform duration-200 group-hover:scale-110 ${
-                        isActive ? "text-white" : "text-gray-700"
-                      }`}>{item.icon}</span>
-                    </div>
-                    
-                    {/* Text with hover effect */}
-                    <div className="flex-1 min-w-0">
-                      <span className={`font-medium transition-all duration-200 ${
-                        isActive ? "text-white" : "text-gray-800 group-hover:text-gray-900"
-                      }`}>{item.label}</span>
-                      
-                      {/* Subtle underline on hover for non-active items */}
-                      {!isActive && (
-                        <div className="h-0.5 bg-gray-300 scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left rounded-full"></div>
-                      )}
-                    </div>
-                    
-                    {/* Arrow indicator for active item */}
-                    {isActive && (
-                      <div className="text-white/80">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </div>
-                    )}
+                    {/* Text */}
+                    <span className={`font-medium ${
+                      isActive ? "text-white" : "text-gray-800"
+                    }`}>{item.label}</span>
                   </button>
                 );
               })}
             </div>
 
+            {/* Logout Button */}
             <div className="p-4 border-t border-gray-200">
               <button
                 onClick={() => {
                   handleLogout();
                   setSidebarOpen(false);
                 }}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left hover:bg-red-50 text-red-700 transition-all duration-200 relative overflow-hidden group hover:scale-[1.01] hover:shadow-md"
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left hover:bg-red-50 text-red-700 transition-all duration-200"
               >
-                {/* Icon container with hover effect */}
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 group-hover:bg-red-200 transition-all duration-200">
-                  <svg className="w-5 h-5 text-red-600 transition-transform duration-200 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                </div>
-                
-                {/* Text with hover effect */}
-                <div className="flex-1 min-w-0">
-                  <span className="font-medium text-red-700 group-hover:text-red-800 transition-colors duration-200">Logout</span>
-                  
-                  {/* Subtle underline on hover */}
-                  <div className="h-0.5 bg-red-300 scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left rounded-full"></div>
-                </div>
-                
-                {/* Arrow indicator on hover */}
-                <div className="text-red-600 group-hover:translate-x-1 transition-transform duration-200">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                  </svg>
-                </div>
+                <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span className="font-medium text-red-700">Logout</span>
               </button>
             </div>
           </div>

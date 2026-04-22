@@ -1,54 +1,11 @@
-import redis from 'redis';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Redis configuration
-const REDIS_CONFIG = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT) || 6379,
-  password: process.env.REDIS_PASSWORD || undefined,
-  db: parseInt(process.env.REDIS_DB) || 0,
-  retryDelayOnFailover: 100,
-  enableReadyCheck: true,
-  maxRetriesPerRequest: null,
-  lazyConnect: true,
-  keepAlive: 30000,
-  connectTimeout: 10000,
-  commandTimeout: 5000,
-  retryDelayOnClusterDown: 300
-};
+// Redis client disabled - using memory storage only
+const redisClient = null;
 
-// Create Redis client
-const redisClient = redis.createClient(REDIS_CONFIG);
-
-// Connection event handlers
-redisClient.on('connect', () => {
-  console.log('✅ Redis connected successfully');
-});
-
-redisClient.on('ready', () => {
-  console.log('✅ Redis ready for commands');
-});
-
-redisClient.on('error', (err) => {
-  console.error('❌ Redis connection error:', err);
-  // Fallback to memory storage if Redis fails
-  console.warn('⚠️  Falling back to in-memory storage');
-});
-
-redisClient.on('end', () => {
-  console.log('🔌 Redis connection ended');
-});
-
-redisClient.on('reconnecting', () => {
-  console.log('🔄 Redis reconnecting...');
-});
-
-// Connect to Redis
-redisClient.connect().catch(err => {
-  console.error('❌ Failed to connect to Redis:', err);
-});
+console.log('Redis disabled - using in-memory storage only');
 
 // Fallback in-memory storage
 const memoryStorage = new Map();
@@ -57,10 +14,9 @@ const memoryStorage = new Map();
 class RedisService {
   constructor() {
     this.isRedisAvailable = false;
-    this.fallbackToMemory = false;
+    this.fallbackToMemory = true; // Always use memory storage
     
-    // Check Redis availability
-    this.checkRedisAvailability();
+    console.log('Using in-memory storage (Redis disabled)');
   }
 
   async checkRedisAvailability() {

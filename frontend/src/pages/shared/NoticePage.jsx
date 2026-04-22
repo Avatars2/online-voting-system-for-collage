@@ -152,7 +152,7 @@ export default function UnifiedNoticePage() {
     
     setUploading(true);
     try {
-      const uploadUrl = 'http://localhost:5001/api/notices/upload';
+      const uploadUrl = `${import.meta.env.VITE_API_URL}/notices/upload`;
       const token = localStorage.getItem("token");
       const response = await fetch(uploadUrl, {
         method: 'POST',
@@ -380,7 +380,7 @@ export default function UnifiedNoticePage() {
                     {n.attachment && (
                       <div className="mt-2">
                         <a 
-                          href={`http://localhost:5001${n.attachment}`}
+                          href={`${import.meta.env.VITE_API_URL.replace('/api', '')}${n.attachment}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 text-base sm:text-lg font-medium"

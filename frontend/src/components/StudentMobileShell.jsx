@@ -2,12 +2,12 @@ import { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const MENU = [
-  { label: "Dashboard", path: "/student/dashboard", icon: "Dashboard" },
-  { label: "Profile", path: "/student/profile", icon: "Profile" },
+  { label: "Student Dashboard", path: "/student/dashboard", icon: "Dashboard" },
+  { label: "My Profile", path: "/student/profile", icon: "User" },
   { label: "Change Password", path: "/student/reset-password", icon: "Lock" },
-  { label: "Elections", path: "/student/elections", icon: "Vote" },
-  { label: "Results", path: "/student/results", icon: "Results" },
-  { label: "Notices", path: "/student/notices", icon: "Notices" },
+  { label: "Available Elections", path: "/student/elections", icon: "Vote" },
+  { label: "My Results", path: "/student/results", icon: "Trophy" },
+  { label: "Student Notices", path: "/student/notices", icon: "Bell" },
 ];
 
 export default function StudentMobileShell({

@@ -384,15 +384,15 @@ export default function UnifiedNoticePage() {
                   <div className="flex-1">
                     <h3 className="text-lg sm:text-xl font-semibold text-gray-900">{n.title}</h3>
                     <p className="text-base sm:text-lg text-gray-600 mt-2">{n.body || ""}</p>
-                    {(n.attachment || n.pdfData) && (
+                    {(n.pdfData && n.pdfData.base64Data) && (
                       <div className="mt-2">
                         <a 
-                          href={n.pdfData ? `${import.meta.env.VITE_API_URL}/notices/download/${n._id}` : `${import.meta.env.VITE_API_URL.replace('/api', '')}${n.attachment}`}
+                          href={`${import.meta.env.VITE_API_URL}/notices/download/${n._id}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 text-base sm:text-lg font-medium"
                         >
-                          📄 {n.pdfData ? n.pdfData.originalName : n.attachment.split('/').pop()}
+                          📄 {n.pdfData.originalName}
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                           </svg>

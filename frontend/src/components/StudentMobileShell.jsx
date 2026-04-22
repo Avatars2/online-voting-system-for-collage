@@ -19,7 +19,7 @@ export default function StudentMobileShell({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024); // Initialize based on screen size
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Start closed for mobile
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024); // Desktop detection
 
   const activePath = useMemo(() => location.pathname, [location.pathname]);
@@ -43,7 +43,7 @@ export default function StudentMobileShell({
     } else if (!isDesktop && sidebarOpen) {
       setSidebarOpen(false);
     }
-  }, [isDesktop, sidebarOpen]);
+  }, [isDesktop]);
 
   const userInitial = useMemo(() => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -164,7 +164,7 @@ export default function StudentMobileShell({
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="w-12 h-12 bg-white/95 backdrop-blur rounded-full shadow-lg flex items-center justify-center"
           >
-            <span className="text-2xl">&equiv;</span>
+            <span className="text-2xl">&#9776;</span>
           </button>
         </div>
       )}
@@ -215,7 +215,7 @@ export default function StudentMobileShell({
 
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && !isDesktop && (
-        <div className="fixed inset-0 z-40">
+        <div className="fixed inset-0 z-50">
           <div
             className="absolute inset-0 bg-black/50"
             onClick={() => setSidebarOpen(false)}

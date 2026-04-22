@@ -40,7 +40,7 @@ export default function AdminMobileShell({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024); // Initialize based on screen size
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Start closed for mobile
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024); // Desktop detection
 
   const activePath = useMemo(() => location.pathname, [location.pathname]);
@@ -64,7 +64,7 @@ export default function AdminMobileShell({
     } else if (!isDesktop && sidebarOpen) {
       setSidebarOpen(false);
     }
-  }, [isDesktop, sidebarOpen]);
+  }, [isDesktop]);
   
   // Determine user role and menu
   const userRole = useMemo(() => {
@@ -211,7 +211,7 @@ export default function AdminMobileShell({
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="w-12 h-12 bg-white/95 backdrop-blur rounded-full shadow-lg flex items-center justify-center"
           >
-            <span className="text-2xl">&equiv;</span>
+            <span className="text-2xl">&#9776;</span>
           </button>
         </div>
       )}
@@ -262,7 +262,7 @@ export default function AdminMobileShell({
 
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && !isDesktop && (
-        <div className="fixed inset-0 z-40">
+        <div className="fixed inset-0 z-50">
           <div
             className="absolute inset-0 bg-black/50"
             onClick={() => setSidebarOpen(false)}

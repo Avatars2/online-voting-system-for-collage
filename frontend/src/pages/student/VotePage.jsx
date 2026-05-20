@@ -16,6 +16,7 @@ export default function VotePage() {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("error");
   const [studentEmail, setStudentEmail] = useState("");
+  const [otpEmail, setOtpEmail] = useState("");
   const [showOTP, setShowOTP] = useState(false);
 
   useEffect(() => {
@@ -52,6 +53,7 @@ export default function VotePage() {
         
         const email = studentRes.data?.email || "";
         setStudentEmail(email);
+        setOtpEmail(email);
         console.log("VotePage: Set student email to:", email);
         
       } catch (err) {
@@ -74,10 +76,11 @@ export default function VotePage() {
     
     // Use fallback email for development if student email is empty
     let emailToUse = studentEmail;
-    if (!studentEmail) {
+    if (!emailToUse) {
       console.warn("handleConfirmVote: Student email is empty, using fallback");
       emailToUse = "test@student.com"; // Fallback for development
     }
+    setOtpEmail(emailToUse);
     
     console.log("handleConfirmVote: Using email:", emailToUse);
     
@@ -247,10 +250,14 @@ export default function VotePage() {
       {/* OTP Verification Modal */}
       {showOTP && (
         <OTPVerification
-          email={studentEmail}
+          email={otpEmail || studentEmail || "test@student.com"}
           onVerified={handleVoteAfterOTP}
           onCancel={() => setShowOTP(false)}
           onResend={() => handleConfirmVote()}
+          onError={(errorMessage) => {
+            setMessage(errorMessage);
+            setMessageType("error");
+          }}
         />
       )}
     </>

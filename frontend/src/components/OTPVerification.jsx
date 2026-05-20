@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export default function OTPVerification({ email, onVerified, onCancel }) {
+export default function OTPVerification({ email, onVerified, onCancel, onResend, onError }) {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState(60);
@@ -42,7 +42,6 @@ export default function OTPVerification({ email, onVerified, onCancel }) {
   const handleVerify = async () => {
     const otpValue = otp.join("");
     if (otpValue.length !== 6) {
-      // Don't show error message - just don't proceed
       return;
     }
 
@@ -58,14 +57,13 @@ export default function OTPVerification({ email, onVerified, onCancel }) {
       });
 
       const data = await response.json();
-      
       if (response.ok) {
-        // Don't show success message - just proceed
         onVerified();
+      } else {
+        if (onError) onError(data.error || "OTP verification failed");
       }
-      // Don't show error message - let the parent handle it
     } catch (error) {
-      // Don't show error message - let the parent handle it
+      if (onError) onError("OTP verification failed");
     } finally {
       setLoading(false);
     }
@@ -73,6 +71,11 @@ export default function OTPVerification({ email, onVerified, onCancel }) {
 
   // Resend OTP
   const handleResend = async () => {
+    if (onResend) {
+      onResend();
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch("/api/auth/send-otp", {
@@ -85,15 +88,14 @@ export default function OTPVerification({ email, onVerified, onCancel }) {
       });
 
       const data = await response.json();
-      
       if (response.ok) {
-        // Don't show success message - just reset timer
         setTimeLeft(60);
         setOtp(["", "", "", "", "", ""]);
+      } else {
+        if (onError) onError(data.error || "Failed to resend OTP");
       }
-      // Don't show error message - let the parent handle it
     } catch (error) {
-      // Don't show error message - let the parent handle it
+      if (onError) onError("Failed to resend OTP");
     } finally {
       setLoading(false);
     }

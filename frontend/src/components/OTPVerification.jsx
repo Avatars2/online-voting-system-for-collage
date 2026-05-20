@@ -47,7 +47,8 @@ export default function OTPVerification({ email, onVerified, onCancel, onResend,
 
     setLoading(true);
     try {
-      const response = await fetch("/api/auth/verify-otp", {
+      const apiBase = import.meta.env.VITE_API_URL || "/api";
+      const response = await fetch(`${apiBase}/auth/verify-otp`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -78,7 +79,8 @@ export default function OTPVerification({ email, onVerified, onCancel, onResend,
 
     setLoading(true);
     try {
-      const response = await fetch("/api/auth/send-otp", {
+      const apiBase = import.meta.env.VITE_API_URL || "/api";
+      const response = await fetch(`${apiBase}/auth/send-otp`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

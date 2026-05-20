@@ -89,7 +89,8 @@ export default function VotePage() {
       setSubmitting(true);
       console.log("handleConfirmVote: Sending OTP request for email:", emailToUse);
       
-      const response = await fetch("/api/auth/send-otp", {
+      const apiBase = import.meta.env.VITE_API_URL || "/api";
+      const response = await fetch(`${apiBase}/auth/send-otp`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

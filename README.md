@@ -198,16 +198,6 @@ cp .env.example .env
 
 Edit the `.env` file with your credentials (see [Environment Variables](#-environment-variables) section below).
 
-### 5. Seed the Database (Optional)
-
-```bash
-# Create admin account
-npm run add-admin
-
-# Seed sample data (departments, classes, etc.)
-npm run seed
-```
-
 ---
 
 ## 🔧 Environment Variables
@@ -341,10 +331,6 @@ online-voting-system-for-collage/
 │   │   ├── messages.js               #   Email templates & messages
 │   │   ├── softDeleteService.js      #   Soft delete utility
 │   │   └── electionDataProtection.js #   Election data integrity
-│   │
-│   ├── seed/                         # Database seeding scripts
-│   │   ├── seed.js                   #   Sample data seeder
-│   │   └── addAdmin.js               #   Admin account creator
 │   │
 │   ├── server.js                     # Application entry point
 │   ├── package.json                  # Backend dependencies
